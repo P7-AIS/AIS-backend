@@ -6,3 +6,70 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model ais_message {
+  id                     BigInt               @id @default(autoincrement())
+  vessel_id              BigInt
+  destination_id         BigInt?
+  mobile_type_id         BigInt?
+  navigational_status_id BigInt?
+  data_source_type       String?
+  timestamp              DateTime             @db.Timestamptz(6)
+  latitude               Decimal              @db.Decimal
+  longitude              Decimal              @db.Decimal
+  rot                    Decimal?             @db.Decimal
+  sog                    Decimal?             @db.Decimal
+  cog                    Decimal?             @db.Decimal
+  heading                Int?
+  draught                Decimal?             @db.Decimal
+  cargo_type             String?
+  eta                    DateTime?            @db.Timestamp(6)
+  mobile_type            mobile_type?         @relation(fields: [mobile_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ais_message_mobile_type_id_fk")
+  navigational_status    navigational_status? @relation(fields: [navigational_status_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ais_message_navigational_status_id_fk")
+  destination            destination?         @relation(fields: [destination_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fact_destination_id_fk")
+  vessel                 vessel               @relation(fields: [vessel_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vessel_position_vessel_id_fk")
+}
+
+model destination {
+  id          BigInt        @id @default(autoincrement())
+  name        String?
+  ais_message ais_message[]
+}
+
+model mobile_type {
+  id          BigInt        @id @default(autoincrement())
+  name        String?
+  ais_message ais_message[]
+}
+
+model navigational_status {
+  id          BigInt        @id @default(autoincrement())
+  name        String?
+  ais_message ais_message[]
+}
+
+model ship_type {
+  id     BigInt   @id @default(autoincrement())
+  name   String?
+  vessel vessel[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model vessel {
+  id                     BigInt        @id @default(autoincrement())
+  name                   String
+  mmsi                   BigInt
+  ship_type_id           BigInt?
+  imo                    BigInt?
+  call_sign              String?
+  flag                   String?
+  width                  BigInt?
+  length                 BigInt?
+  position_fixing_device String?
+  to_bow                 BigInt?
+  to_stern               BigInt?
+  to_port                BigInt?
+  to_starboard           BigInt?
+  ais_message            ais_message[]
+  ship_type              ship_type?    @relation(fields: [ship_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vessel_ship_type_fk")
+}

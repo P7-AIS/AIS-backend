@@ -8,7 +8,7 @@ class DatabaseHandler {
   }
 
   async getVesselByMmsi(mmsi: number) {
-    return this.prisma.vessel.findMany({ where: { id: { mmsi: mmsi } } })
+    return this.prisma.vessel.findMany({ where: { id: mmsi } })
   }
 }
 
