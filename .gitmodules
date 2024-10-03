@@ -1,0 +1,6 @@
+[submodule "AIS-protobuf"]
+	path = AIS-protobuf
+	url = https://github.com/P7-AIS/AIS-protobuf.git
+[submodule "AIS-models"]
+	path = AIS-models
+	url = https://github.com/P7-AIS/AIS-models.git
