@@ -17,6 +17,7 @@ export default [
     rules: {
       quotes: [2, 'single', { avoidEscape: true }],
       semi: [2, 'never'],
+      length: ['error', { code: 120 }],
     },
   },
 ]
