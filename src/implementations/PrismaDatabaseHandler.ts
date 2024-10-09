@@ -1,22 +1,35 @@
-import { PrismaClient, ais_message, vessel } from '@prisma/client'
+import { PrismaClient, ais_message, ship_type, vessel } from '@prisma/client'
 import IDatabaseHandler from '../interfaces/IDatabaseHandler'
 import { Vessel } from '../../AIS-models/models/Vessel'
 import { AisMessage } from '../../AIS-models/models/AisMessage'
 import IMonitorable from '../interfaces/IMonitorable'
+import { ShipType } from '../../AIS-models/models/ShipType'
 
 export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
-  constructor(private readonly prisma: PrismaClient) {
-    this.prisma = prisma
-  }
+  constructor(private readonly prisma: PrismaClient) {}
+
   async getVessel(mmsi: number): Promise<Vessel | null> {
     const result = await this.prisma.vessel.findUnique({
       where: { id: mmsi },
+      include: {
+        ship_type: true,
+      },
     })
 
-    if (!result) return null
+    if (!result || !result.ship_type) return null
 
     return this.convertToVessel(result)
   }
+
+  // async getVesselType(vessel: number): Promise<ShipType | null> {
+  //   const result = await this.prisma.ship_type.findUnique({
+  //     where: { id: ship_type_id },
+  //   })
+
+  //   if (!result) return null
+
+  //   return this.convertToVessel(result)
+  // }
 
   async getVesselHistory(mmsi: number, startime: Date, endtime: Date): Promise<AisMessage[] | null> {
     const result = await this.prisma.ais_message.findMany({
@@ -37,12 +50,16 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     return result.map(this.convertToAisMessage)
   }
 
-  private convertToVessel(vessel: vessel): Vessel {
+  private convertToVessel(
+    vessel: vessel & {
+      ship_type: ship_type | null
+    }
+  ): Vessel {
     return {
       id: Number(vessel.id),
       name: vessel.name,
       mmsi: Number(vessel.mmsi),
-      shipTypeId: vessel.ship_type_id ? Number(vessel.ship_type_id) : undefined,
+      shipType: vessel.ship_type?.name || undefined,
       imo: vessel.imo ? Number(vessel.imo) : undefined,
       callSign: vessel.call_sign ? vessel.call_sign : undefined,
       flag: vessel.flag ? vessel.flag : undefined,
@@ -53,6 +70,13 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
       toStern: vessel.to_stern ? Number(vessel.to_stern) : undefined,
       toPort: vessel.to_port ? Number(vessel.to_port) : undefined,
       toStarboard: vessel.to_starboard ? Number(vessel.to_starboard) : undefined,
+    }
+  }
+
+  private convertToShipType(ship_type: ship_type): ShipType {
+    return {
+      id: Number(ship_type.id),
+      name: ship_type.name ? ship_type.name : undefined,
     }
   }
 

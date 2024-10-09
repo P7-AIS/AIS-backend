@@ -23,7 +23,6 @@ export default class GRPCServer implements IServer {
     private readonly ip: string
   ) {
     this.grpcServer = new grpc.Server()
-    this.service = service
   }
 
   public start() {
