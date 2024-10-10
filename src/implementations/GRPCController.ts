@@ -28,7 +28,7 @@ export default class GRPCController implements IGRPCController, IMonitorable {
     call: grpc.ServerUnaryCall<VesselInfoRequest, VesselInfoResponse>,
     callback: grpc.sendUnaryData<VesselInfoResponse>
   ) => {
-    const vessel = await this.databaseHandler.getVessel(Number(call.request.vesselId))
+    const vessel = await this.databaseHandler.getVessel(Number(call.request.mmsi))
 
     if (!vessel) {
       callback({ code: Status.NOT_FOUND }, null)
@@ -36,9 +36,8 @@ export default class GRPCController implements IGRPCController, IMonitorable {
     }
 
     const response: VesselInfoResponse = {
-      vesselId: vessel.id,
-      name: vessel.name,
       mmsi: vessel.mmsi,
+      name: vessel.name,
       shipType: vessel.shipType,
       imo: vessel.imo,
       callSign: vessel.callSign,
@@ -56,7 +55,7 @@ export default class GRPCController implements IGRPCController, IMonitorable {
     callback: grpc.sendUnaryData<VesselPathResponse>
   ) => {
     const response: VesselPathResponse = {
-      vesselId: 12,
+      mmsi: 12,
       pathForecast: [],
       pathHistory: [],
     }

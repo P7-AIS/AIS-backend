@@ -9,7 +9,7 @@ datasource db {
 
 model ais_message {
   id                     BigInt               @id @default(autoincrement())
-  vessel_id              BigInt
+  vessel_mmsi            BigInt
   destination_id         BigInt?
   mobile_type_id         BigInt?
   navigational_status_id BigInt?
@@ -27,7 +27,7 @@ model ais_message {
   mobile_type            mobile_type?         @relation(fields: [mobile_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ais_message_mobile_type_id_fk")
   navigational_status    navigational_status? @relation(fields: [navigational_status_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ais_message_navigational_status_id_fk")
   destination            destination?         @relation(fields: [destination_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fact_destination_id_fk")
-  vessel                 vessel               @relation(fields: [vessel_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vessel_position_vessel_id_fk")
+  vessel                 vessel               @relation(fields: [vessel_mmsi], references: [mmsi], onDelete: NoAction, onUpdate: NoAction, map: "vessel_position_vessel_mmsi_fk")
 }
 
 model destination {
@@ -56,9 +56,8 @@ model ship_type {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model vessel {
-  id                     BigInt        @id @default(autoincrement())
+  mmsi                   BigInt        @id
   name                   String
-  mmsi                   BigInt
   ship_type_id           BigInt?
   imo                    BigInt?
   call_sign              String?

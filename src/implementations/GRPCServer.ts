@@ -16,7 +16,9 @@ export default class GRPCServer implements IServer {
 
   public start() {
     this.grpcServer.addService(AISServiceService, this.service)
-    this.grpcServer.bindAsync(`${this.ip}:${this.port}`, grpc.ServerCredentials.createInsecure(), () => {})
+    this.grpcServer.bindAsync(`${this.ip}:${this.port}`, grpc.ServerCredentials.createInsecure(), () => {
+      console.log(`Server running at ${this.ip}:${this.port}`)
+    })
   }
 
   public stop() {

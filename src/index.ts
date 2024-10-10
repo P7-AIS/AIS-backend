@@ -23,5 +23,5 @@ const controller = new GRPCController(jobHandler, logicHandler, databaseHandler)
 const service = new GRPCServer(controller, SERVER_PORT, SERVER_IP)
 const monitor = new Monitor([databaseHandler, logicHandler, jobHandler, controller])
 
-monitor.start()
+// monitor.start()
 service.start()

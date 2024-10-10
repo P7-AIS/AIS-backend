@@ -10,7 +10,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
 
   async getVessel(mmsi: number): Promise<Vessel | null> {
     const result = await this.prisma.vessel.findUnique({
-      where: { id: mmsi },
+      where: { mmsi: mmsi },
       include: {
         ship_type: true,
       },
@@ -34,7 +34,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
   async getVesselHistory(mmsi: number, startime: Date, endtime: Date): Promise<AisMessage[] | null> {
     const result = await this.prisma.ais_message.findMany({
       where: {
-        vessel_id: mmsi,
+        vessel_mmsi: mmsi,
         timestamp: {
           gte: startime,
           lte: endtime,
@@ -56,9 +56,8 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     }
   ): Vessel {
     return {
-      id: Number(vessel.id),
-      name: vessel.name,
       mmsi: Number(vessel.mmsi),
+      name: vessel.name,
       shipType: vessel.ship_type?.name || undefined,
       imo: vessel.imo ? Number(vessel.imo) : undefined,
       callSign: vessel.call_sign ? vessel.call_sign : undefined,
@@ -83,7 +82,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
   private convertToAisMessage(ais_message: ais_message): AisMessage {
     return {
       id: Number(ais_message.id),
-      vesselId: Number(ais_message.vessel_id),
+      vesselId: Number(ais_message.vessel_mmsi),
       destinationId: ais_message.destination_id ? Number(ais_message.destination_id) : undefined,
       mobileTypeId: ais_message.mobile_type_id ? Number(ais_message.mobile_type_id) : undefined,
       navigationalStatusId: ais_message.navigational_status_id ? Number(ais_message.navigational_status_id) : undefined,
