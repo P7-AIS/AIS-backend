@@ -16,20 +16,20 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
       },
     })
 
-    if (!result || !result.ship_type) return null
+    if (!result) return null
 
     return this.convertToVessel(result)
   }
 
-  // async getVesselType(vessel: number): Promise<ShipType | null> {
-  //   const result = await this.prisma.ship_type.findUnique({
-  //     where: { id: ship_type_id },
-  //   })
+  async getVesselType(mmsi: number): Promise<ShipType | null> {
+    const result = await this.prisma.ship_type.findUnique({
+      where: { id: mmsi },
+    })
 
-  //   if (!result) return null
+    if (!result) return null
 
-  //   return this.convertToVessel(result)
-  // }
+    return this.convertToVesselType(result)
+  }
 
   async getVesselHistory(mmsi: number, startime: Date, endtime: Date): Promise<AisMessage[] | null> {
     const result = await this.prisma.ais_message.findMany({
@@ -73,7 +73,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     }
   }
 
-  private convertToShipType(ship_type: ship_type): ShipType {
+  private convertToVesselType(ship_type: ship_type): ShipType {
     return {
       id: Number(ship_type.id),
       name: ship_type.name ? ship_type.name : undefined,
