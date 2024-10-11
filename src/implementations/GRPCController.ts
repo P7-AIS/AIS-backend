@@ -1,10 +1,10 @@
+import * as grpc from '@grpc/grpc-js'
+import { Status } from '@grpc/grpc-js/build/src/constants'
 import IGRPCController from '../interfaces/IGRPCController'
 import IJobHandler from '../interfaces/IJobHandler'
 import IMonitorable from '../interfaces/IMonitorable'
 import ILogicHandler from '../interfaces/ILogicHandler'
 import IDatabaseHandler from '../interfaces/IDatabaseHandler'
-import * as grpc from '@grpc/grpc-js'
-
 import {
   StreamingRequest,
   StreamingResponse,
@@ -13,7 +13,6 @@ import {
   VesselPathRequest,
   VesselPathResponse,
 } from '../../proto/AIS-protobuf/ais'
-import { Status } from '@grpc/grpc-js/build/src/constants'
 
 export default class GRPCController implements IGRPCController, IMonitorable {
   [metod: string]: any
@@ -66,11 +65,33 @@ export default class GRPCController implements IGRPCController, IMonitorable {
   startStreaming: grpc.handleBidiStreamingCall<StreamingRequest, StreamingResponse> = (
     call: grpc.ServerDuplexStream<StreamingRequest, StreamingResponse>
   ) => {
-    console.log(
-      call.on('data', (req) => {
-        console.log(req)
-      })
-    )
+    let interval: NodeJS.Timeout | null = null
+
+    const writeData = async (data: StreamingRequest) => {
+      const allVessels = (await this.databaseHandler.getAllSimpleVessels(new Date(data.startTime))) || []
+
+      const response: StreamingResponse = {
+        vessels: allVessels,
+        monitoredVessels: [],
+      }
+
+      call.write(response)
+    }
+
+    call.on('data', (data: StreamingRequest) => {
+      if (interval) {
+        clearInterval(interval)
+      }
+      writeData(data)
+      interval = setInterval(() => writeData(data), 5000)
+    })
+
+    call.on('close', () => {
+      if (interval) {
+        clearInterval(interval)
+        interval = null
+      }
+    })
   }
 
   getAccumulatedLogs(): string[] {
