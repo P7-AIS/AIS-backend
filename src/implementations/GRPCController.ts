@@ -62,8 +62,8 @@ export default class GRPCController implements IGRPCController, IMonitorable {
     callback({ code: Status.UNIMPLEMENTED }, response)
   }
 
-  startStreaming: grpc.handleBidiStreamingCall<StreamingRequest, StreamingResponse> = (
-    call: grpc.ServerDuplexStream<StreamingRequest, StreamingResponse>
+  startStreaming: grpc.handleServerStreamingCall<StreamingRequest, StreamingResponse> = (
+    call: grpc.ServerWritableStream<StreamingRequest, StreamingResponse>
   ) => {
     let interval: NodeJS.Timeout | null = null
 
@@ -78,13 +78,7 @@ export default class GRPCController implements IGRPCController, IMonitorable {
       call.write(response)
     }
 
-    call.on('data', (data: StreamingRequest) => {
-      if (interval) {
-        clearInterval(interval)
-      }
-      writeData(data)
-      interval = setInterval(() => writeData(data), 5000)
-    })
+    interval = setInterval(() => writeData(call.request), 5000)
 
     call.on('close', () => {
       if (interval) {

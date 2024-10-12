@@ -4,15 +4,13 @@ import IServer from '../interfaces/IServer'
 import { AISServiceService } from '../../proto/AIS-protobuf/ais'
 
 export default class GRPCServer implements IServer {
-  private readonly grpcServer: grpc.Server
+  private readonly grpcServer: grpc.Server = new grpc.Server()
 
   constructor(
     private readonly service: IGRPCController,
     private readonly port: string,
     private readonly ip: string
-  ) {
-    this.grpcServer = new grpc.Server()
-  }
+  ) {}
 
   public start() {
     this.grpcServer.addService(AISServiceService, this.service)
