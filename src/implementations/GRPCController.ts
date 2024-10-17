@@ -55,9 +55,9 @@ export default class GRPCController implements IGRPCController, IMonitorable {
     call: grpc.ServerUnaryCall<VesselPathRequest, VesselPathResponse>,
     callback: grpc.sendUnaryData<VesselPathResponse>
   ) => {
-    const { mmsi, timestamp } = call.request
+    const { mmsi, starttime, endtime } = call.request
 
-    const vesselPath = await this.databaseHandler.getVesselPath(mmsi, new Date(), new Date(timestamp))
+    const vesselPath = await this.databaseHandler.getVesselPath(mmsi, new Date(starttime), new Date(endtime))
 
     if (!vesselPath) {
       callback({ code: Status.NOT_FOUND }, null)
@@ -79,7 +79,7 @@ export default class GRPCController implements IGRPCController, IMonitorable {
       pathHistory: grpcVesselPath,
     }
 
-    callback({ code: Status.UNIMPLEMENTED }, response)
+    callback(null, response)
   }
 
   startStreaming: grpc.handleServerStreamingCall<StreamingRequest, StreamingResponse> = (

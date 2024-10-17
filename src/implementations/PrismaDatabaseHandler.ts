@@ -74,10 +74,10 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
   }
 
   async getVesselPath(mmsi: number, startime: Date, endtime: Date): Promise<VesselPath | null> {
-    const pathResult = await this.prisma.$queryRaw<VesselPathResult>`
-      SELECT st_filterbym(trajectory, ${startime.getTime()}, ${endtime.getTime()}, true)
+    const pathResult = await this.prisma.$queryRaw<VesselPathResult[]>`
+      SELECT st_asbinary(st_filterbym(trajectory, ${startime.getTime()}, ${endtime.getTime()}, true)) as path
       FROM vessel_trajectory
-      WHERE id = ${mmsi}
+      WHERE mmsi = ${mmsi}
     `
 
     const headingsResult = await this.prisma.$queryRaw<
@@ -90,7 +90,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
       subpath AS (
           SELECT st_filterbym(trajectory, ${startime.getTime()}, ${endtime.getTime()}, true) AS filtered_trajectory
           FROM vessel_trajectory
-          WHERE id = ${mmsi}
+          WHERE mmsi = ${mmsi}
       ),
       times AS (
           SELECT st_m(p.geom) AS timestamp
@@ -103,10 +103,12 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
 
     const headings = headingsResult.sort((a, b) => a.timestamp - b.timestamp).map((heading) => heading.heading)
 
-    return {
-      binPath: pathResult.path,
+    const result: VesselPath = {
+      binPath: pathResult[0].path,
       headings,
     }
+
+    return result
   }
 
   ///////////////////////////////////////////////////////////
