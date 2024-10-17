@@ -29,7 +29,7 @@ model ais_message {
   traj_id           BigInt?
   mobile_type       mobile_type?             @relation(fields: [mobile_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   nav_status        nav_status?              @relation(fields: [nav_status_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  vessel_trajectory vessel_trajectory?       @relation(fields: [traj_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vessel_trajectory vessel_trajectory?       @relation(fields: [traj_id], references: [mmsi], onDelete: NoAction, onUpdate: NoAction)
   vessel            vessel                   @relation(fields: [vessel_mmsi], references: [mmsi], onDelete: NoAction, onUpdate: NoAction)
 }
 
@@ -100,8 +100,8 @@ model vessel {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model vessel_trajectory {
-  id          BigInt                  @id @default(autoincrement())
+  mmsi          BigInt                  @id @default(autoincrement())
   trajectory  Unsupported("geometry(LineStringM,4326)")
   ais_message ais_message[]
-  vessel      vessel                  @relation(fields: [id], references: [mmsi], onDelete: NoAction, onUpdate: NoAction, map: "vessel_id")
+  vessel      vessel                  @relation(fields: [mmsi], references: [mmsi], onDelete: NoAction, onUpdate: NoAction, map: "vessel_id")
 }

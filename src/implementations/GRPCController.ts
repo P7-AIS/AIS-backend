@@ -6,10 +6,13 @@ import IMonitorable from '../interfaces/IMonitorable'
 import ILogicHandler from '../interfaces/ILogicHandler'
 import IDatabaseHandler from '../interfaces/IDatabaseHandler'
 import {
+  SimpleVessel,
   StreamingRequest,
   StreamingResponse,
   VesselInfoRequest,
   VesselInfoResponse,
+  VesselPath,
+  VesselPath_Heading,
   VesselPathRequest,
   VesselPathResponse,
 } from '../../proto/AIS-protobuf/ais'
@@ -40,7 +43,6 @@ export default class GRPCController implements IGRPCController, IMonitorable {
       shipType: vessel.shipType,
       imo: vessel.imo,
       callSign: vessel.callSign,
-      flag: vessel.flag,
       width: vessel.width,
       length: vessel.length,
       positionFixingDevice: vessel.positionFixingDevice,
@@ -49,14 +51,32 @@ export default class GRPCController implements IGRPCController, IMonitorable {
     callback(null, response)
   }
 
-  getVesselPath: grpc.handleUnaryCall<VesselPathRequest, VesselPathResponse> = (
+  getVesselPath: grpc.handleUnaryCall<VesselPathRequest, VesselPathResponse> = async (
     call: grpc.ServerUnaryCall<VesselPathRequest, VesselPathResponse>,
     callback: grpc.sendUnaryData<VesselPathResponse>
   ) => {
+    const { mmsi, timestamp } = call.request
+
+    const vesselPath = await this.databaseHandler.getVesselPath(mmsi, new Date(), new Date(timestamp))
+
+    if (!vesselPath) {
+      callback({ code: Status.NOT_FOUND }, null)
+      return
+    }
+
+    const grpcHeadings: VesselPath_Heading[] = vesselPath.headings.map((heading) => ({
+      heading: heading,
+    }))
+
+    const grpcVesselPath: VesselPath = {
+      headings: grpcHeadings,
+      binPath: vesselPath.binPath,
+    }
+
     const response: VesselPathResponse = {
-      mmsi: 12,
-      pathForecast: [],
-      pathHistory: [],
+      mmsi: mmsi,
+      pathForecast: undefined,
+      pathHistory: grpcVesselPath,
     }
 
     callback({ code: Status.UNIMPLEMENTED }, response)
@@ -70,8 +90,13 @@ export default class GRPCController implements IGRPCController, IMonitorable {
     const writeData = async (data: StreamingRequest) => {
       const allVessels = (await this.databaseHandler.getAllSimpleVessels(new Date(data.startTime))) || []
 
+      const grpcVessels: SimpleVessel[] = allVessels.map((vessel) => ({
+        mmsi: vessel.mmsi,
+        binLocation: vessel.binLocation,
+      }))
+
       const response: StreamingResponse = {
-        vessels: allVessels,
+        vessels: grpcVessels,
         monitoredVessels: [],
       }
 
