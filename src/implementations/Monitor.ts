@@ -5,7 +5,6 @@ export default class Monitor implements IMonitor {
   private intervalRef: NodeJS.Timeout | null
 
   constructor(private readonly monitorables: IMonitorable[]) {
-    this.monitorables = monitorables
     this.intervalRef = null
   }
 

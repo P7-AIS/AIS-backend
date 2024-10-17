@@ -1,16 +1,44 @@
-import { PrismaClient, ais_message, vessel } from '@prisma/client'
+import { PrismaClient, ais_message, ship_type, vessel } from '@prisma/client'
 import IDatabaseHandler from '../interfaces/IDatabaseHandler'
-import { Vessel } from '../../AIS-models/models/Vessel'
-import { AisMessage } from '../../AIS-models/models/AisMessage'
 import IMonitorable from '../interfaces/IMonitorable'
+import { SimpleVessel, ShipType, Vessel, Location, Point, AisMessage } from '../../AIS-models/models'
 
 export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
-  constructor(private readonly prisma: PrismaClient) {
-    this.prisma = prisma
+  constructor(private readonly prisma: PrismaClient) {}
+
+  async getAllSimpleVessels(time: Date): Promise<SimpleVessel[] | null> {
+    const maxTimestamps = await this.prisma.ais_message.groupBy({
+      by: ['vessel_mmsi'],
+      where: {
+        timestamp: {
+          gte: new Date(time.getTime() - 10 * 60 * 60 * 1000),
+          lte: time,
+        },
+      },
+      _max: {
+        timestamp: true,
+      },
+    })
+
+    const result = await this.prisma.ais_message.findMany({
+      where: {
+        OR: maxTimestamps.map((maxTimestamp) => ({
+          vessel_mmsi: maxTimestamp.vessel_mmsi,
+          timestamp: maxTimestamp._max.timestamp!,
+        })),
+      },
+      distinct: ['vessel_mmsi', 'timestamp'],
+    })
+
+    return result.map(this.convertToSimpleShip.bind(this))
   }
+
   async getVessel(mmsi: number): Promise<Vessel | null> {
     const result = await this.prisma.vessel.findUnique({
-      where: { id: mmsi },
+      where: { mmsi: mmsi },
+      include: {
+        ship_type: true,
+      },
     })
 
     if (!result) return null
@@ -18,10 +46,20 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     return this.convertToVessel(result)
   }
 
+  async getVesselType(mmsi: number): Promise<ShipType | null> {
+    const result = await this.prisma.ship_type.findUnique({
+      where: { id: mmsi },
+    })
+
+    if (!result) return null
+
+    return this.convertToVesselType(result)
+  }
+
   async getVesselHistory(mmsi: number, startime: Date, endtime: Date): Promise<AisMessage[] | null> {
     const result = await this.prisma.ais_message.findMany({
       where: {
-        vessel_id: mmsi,
+        vessel_mmsi: mmsi,
         timestamp: {
           gte: startime,
           lte: endtime,
@@ -37,12 +75,39 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     return result.map(this.convertToAisMessage)
   }
 
-  private convertToVessel(vessel: vessel): Vessel {
+  ///////////////////////////////////////////////////////////
+
+  private convertToSimpleShip(message: ais_message): SimpleVessel {
     return {
-      id: Number(vessel.id),
-      name: vessel.name,
+      mmsi: Number(message.vessel_mmsi),
+      location: this.convertToLocation(message),
+    }
+  }
+
+  private convertToLocation(message: ais_message): Location {
+    return {
+      point: this.convertToPoint(message),
+      heading: message.heading ? message.heading : undefined,
+      timestamp: message.timestamp.getTime(),
+    }
+  }
+
+  private convertToPoint(message: ais_message): Point {
+    return {
+      lat: parseFloat(message.latitude.toString()),
+      lon: parseFloat(message.latitude.toString()),
+    }
+  }
+
+  private convertToVessel(
+    vessel: vessel & {
+      ship_type: ship_type | null
+    }
+  ): Vessel {
+    return {
       mmsi: Number(vessel.mmsi),
-      shipTypeId: vessel.ship_type_id ? Number(vessel.ship_type_id) : undefined,
+      name: vessel.name,
+      shipType: vessel.ship_type?.name || undefined,
       imo: vessel.imo ? Number(vessel.imo) : undefined,
       callSign: vessel.call_sign ? vessel.call_sign : undefined,
       flag: vessel.flag ? vessel.flag : undefined,
@@ -56,10 +121,17 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     }
   }
 
+  private convertToVesselType(ship_type: ship_type): ShipType {
+    return {
+      id: Number(ship_type.id),
+      name: ship_type.name ? ship_type.name : undefined,
+    }
+  }
+
   private convertToAisMessage(ais_message: ais_message): AisMessage {
     return {
       id: Number(ais_message.id),
-      vesselId: Number(ais_message.vessel_id),
+      mmsi: Number(ais_message.vessel_mmsi),
       destinationId: ais_message.destination_id ? Number(ais_message.destination_id) : undefined,
       mobileTypeId: ais_message.mobile_type_id ? Number(ais_message.mobile_type_id) : undefined,
       navigationalStatusId: ais_message.navigational_status_id ? Number(ais_message.navigational_status_id) : undefined,
