@@ -11,26 +11,26 @@ datasource db {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model ais_message {
-  id                Int                       @id @default(autoincrement())
+  id                Int                      @id @default(autoincrement())
   vessel_mmsi       BigInt
   destination       String?
   mobile_type_id    Int?
-  nav_status_id     BigInt?
+  nav_status_id     Int?
   data_source_type  String?
-  timestamp         DateTime                  @db.Timestamp(6)
-  cog               Float?                    @db.Real
-  rot               Float?                    @db.Real
-  sog               Float?                    @db.Real
-  coordm            Unsupported("geography")?
-  heading           Float?                    @db.Real
-  draught           Float?                    @db.Real
+  timestamp         DateTime                 @db.Timestamp(6)
+  cog               Float?                   @db.Real
+  rot               Float?                   @db.Real
+  sog               Float?                   @db.Real
+  coordm            Unsupported("geometry(PointM,4326)")?
+  heading           Float?                   @db.Real
+  draught           Float?                   @db.Real
   cargo_type        String?
-  eta               DateTime?                 @db.Timestamp(6)
-  traj_id           Int?
-  mobile_type       mobile_type?              @relation(fields: [mobile_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  nav_status        nav_status?               @relation(fields: [nav_status_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  vessel_trajectory vessel_trajectory?        @relation(fields: [traj_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  vessel            vessel                    @relation(fields: [vessel_mmsi], references: [mmsi], onDelete: NoAction, onUpdate: NoAction)
+  eta               DateTime?                @db.Timestamp(6)
+  traj_id           BigInt?
+  mobile_type       mobile_type?             @relation(fields: [mobile_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  nav_status        nav_status?              @relation(fields: [nav_status_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vessel_trajectory vessel_trajectory?       @relation(fields: [traj_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vessel            vessel                   @relation(fields: [vessel_mmsi], references: [mmsi], onDelete: NoAction, onUpdate: NoAction)
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -50,9 +50,9 @@ model mobile_type {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model monitored_zone {
-  id         Int                      @id @default(autoincrement())
-  created_at DateTime                 @db.Time(6)
-  zone       Unsupported("geography")
+  id         Int                     @id @default(autoincrement())
+  created_at DateTime                @db.Time(6)
+  zone       Unsupported("geometry(Polygon,4326)")
 }
 
 model nav_status {
@@ -100,8 +100,8 @@ model vessel {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model vessel_trajectory {
-  id          BigInt                   @id @default(autoincrement())
-  trajectory  Unsupported("geography")
+  id          BigInt                  @id @default(autoincrement())
+  trajectory  Unsupported("geometry(LineStringM,4326)")
   ais_message ais_message[]
-  vessel      vessel                   @relation(fields: [id], references: [mmsi], onDelete: NoAction, onUpdate: NoAction, map: "vessel_id")
+  vessel      vessel                  @relation(fields: [id], references: [mmsi], onDelete: NoAction, onUpdate: NoAction, map: "vessel_id")
 }
