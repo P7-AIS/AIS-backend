@@ -31,6 +31,7 @@ model ais_message {
   nav_status        nav_status?              @relation(fields: [nav_status_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vessel_trajectory vessel_trajectory?       @relation(fields: [traj_id], references: [mmsi], onDelete: NoAction, onUpdate: NoAction)
   vessel            vessel                   @relation(fields: [vessel_mmsi], references: [mmsi], onDelete: NoAction, onUpdate: NoAction)
+  @@index ([timestamp], name:"ais_message_timestamp_idx", type:BTree)
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
