@@ -90,13 +90,10 @@ export default class GRPCController implements IGRPCController, IMonitorable {
     const writeData = async (data: StreamingRequest) => {
       const allVessels = (await this.databaseHandler.getAllSimpleVessels(new Date(data.startTime))) || []
 
-      const grpcVessels: SimpleVessel[] = allVessels.map((vessel) => ({
-        mmsi: vessel.mmsi,
-        binLocation: vessel.binLocation,
-      }))
+      console.log(allVessels.map((vessel) => vessel.heading).filter((h) => h !== undefined).length)
 
       const response: StreamingResponse = {
-        vessels: grpcVessels,
+        vessels: allVessels,
         monitoredVessels: [],
       }
 
