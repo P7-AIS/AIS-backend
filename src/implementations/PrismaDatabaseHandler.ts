@@ -7,7 +7,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
   constructor(private readonly prisma: PrismaClient) {}
 
   async getAllSimpleVessels(time: Date): Promise<SimpleVessel[] | null> {
-    const newestLocs = await this.prisma.$queryRaw<{ mmsi: number; point: Buffer; heading?: number }[]>`
+    const newestLocs = await this.prisma.$queryRaw<{ mmsi: number; point: Buffer; heading: number | null }[]>`
       WITH 
       endpoints as (
         SELECT mmsi, st_endpoint(st_filterbym(trajectory, 1, ${time.getTime()}, true)) as endpoint
@@ -29,7 +29,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     const result: SimpleVessel[] = newestLocs.map((loc) => ({
       mmsi: loc.mmsi,
       binLocation: loc.point,
-      heading: loc.heading,
+      heading: loc.heading ? loc.heading : undefined,
     }))
 
     return result
