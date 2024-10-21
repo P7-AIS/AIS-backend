@@ -69,7 +69,7 @@ export default class GRPCController implements IGRPCController, IMonitorable {
           lon: location.point.lon,
           lat: location.point.lat,
         },
-        timestamp: location.timestamp.getTime(),
+        timestamp: location.timestamp,
         heading: location.heading,
       })),
     }
@@ -98,7 +98,7 @@ export default class GRPCController implements IGRPCController, IMonitorable {
             lon: vessel.location.point.lon,
             lat: vessel.location.point.lat,
           },
-          timestamp: vessel.location.timestamp.getTime(),
+          timestamp: vessel.location.timestamp,
           heading: vessel.location.heading,
         },
       }))

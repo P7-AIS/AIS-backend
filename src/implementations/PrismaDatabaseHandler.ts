@@ -36,7 +36,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
           lat: loc.lat,
         },
         heading: loc.heading ? loc.heading : undefined,
-        timestamp: new Date(loc.timestamp),
+        timestamp: loc.timestamp,
       },
     }))
 
@@ -70,12 +70,10 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
           lon: res.lon,
           lat: res.lat,
         },
-        timestamp: new Date(res.timestamp),
+        timestamp: res.timestamp,
         heading: res.heading ? res.heading : undefined,
       })),
     }
-
-    console.log(result)
 
     return result
   }
