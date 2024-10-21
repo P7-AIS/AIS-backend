@@ -31,6 +31,7 @@ model ais_message {
   nav_status        nav_status?              @relation(fields: [nav_status_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vessel_trajectory vessel_trajectory?       @relation(fields: [traj_id], references: [mmsi], onDelete: NoAction, onUpdate: NoAction)
   vessel            vessel                   @relation(fields: [vessel_mmsi], references: [mmsi], onDelete: NoAction, onUpdate: NoAction)
+  @@index ([timestamp], name:"ais_message_timestamp_idx", type:BTree)
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -53,6 +54,7 @@ model monitored_zone {
   id         Int                     @id @default(autoincrement())
   created_at DateTime                @db.Time(6)
   zone       Unsupported("geometry(Polygon,4326)")
+  @@index([zone], name:"zone_idx", type: Gist)
 }
 
 model nav_status {
@@ -95,6 +97,7 @@ model vessel {
   mid                    mid?               @relation(fields: [country_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   ship_type              ship_type?         @relation(fields: [ship_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   vessel_trajectory      vessel_trajectory?
+  @@index([mmsi], name:"mmsi_idx", type: Hash)
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -104,4 +107,5 @@ model vessel_trajectory {
   trajectory  Unsupported("geometry(LineStringM,4326)")
   ais_message ais_message[]
   vessel      vessel                  @relation(fields: [mmsi], references: [mmsi], onDelete: NoAction, onUpdate: NoAction, map: "vessel_id")
+  @@index([trajectory], name:"trajectory_idx", type: Gist)
 }
