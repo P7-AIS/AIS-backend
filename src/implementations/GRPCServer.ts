@@ -1,34 +1,28 @@
 import * as grpc from '@grpc/grpc-js'
 import * as protoLoader from '@grpc/proto-loader'
-import { ProtoGrpcType } from '../../proto/ais'
 import IGRPCController from '../interfaces/IGRPCController'
 import IServer from '../interfaces/IServer'
-
-const PROTO_PATH = __dirname + '/../AIS-protobuf/ais.proto'
-const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
-  keepCase: true,
-  longs: String,
-  enums: String,
-  defaults: false,
-  oneofs: true,
-})
-const apiProto = grpc.loadPackageDefinition(packageDefinition) as unknown as ProtoGrpcType
+import { AISServiceService } from '../../proto/AIS-protobuf/ais'
+import { ReflectionService } from '@grpc/reflection'
 
 export default class GRPCServer implements IServer {
-  private readonly grpcServer: grpc.Server
+  private readonly grpcServer: grpc.Server = new grpc.Server()
 
   constructor(
     private readonly service: IGRPCController,
     private readonly port: string,
     private readonly ip: string
-  ) {
-    this.grpcServer = new grpc.Server()
-    this.service = service
-  }
+  ) {}
 
   public start() {
-    this.grpcServer.addService(apiProto.protobuf.AISService.service, this.service)
-    this.grpcServer.bindAsync(`${this.ip}:${this.port}`, grpc.ServerCredentials.createInsecure(), () => {})
+    const pkg = protoLoader.loadSync('AIS-protobuf/ais.proto')
+    const reflection = new ReflectionService(pkg)
+    reflection.addToServer(this.grpcServer)
+
+    this.grpcServer.addService(AISServiceService, this.service)
+    this.grpcServer.bindAsync(`${this.ip}:${this.port}`, grpc.ServerCredentials.createInsecure(), () => {
+      console.log(`Server running at ${this.ip}:${this.port}`)
+    })
   }
 
   public stop() {

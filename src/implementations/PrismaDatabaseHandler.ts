@@ -1,16 +1,89 @@
-import { PrismaClient, ais_message, vessel } from '@prisma/client'
+import { PrismaClient, ship_type, vessel } from '@prisma/client'
 import IDatabaseHandler from '../interfaces/IDatabaseHandler'
-import { Vessel } from '../../AIS-models/models/Vessel'
-import { AisMessage } from '../../AIS-models/models/AisMessage'
 import IMonitorable from '../interfaces/IMonitorable'
+import { SimpleVessel, ShipType, Vessel, VesselPath } from '../../AIS-models/models'
 
 export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
-  constructor(private readonly prisma: PrismaClient) {
-    this.prisma = prisma
+  constructor(private readonly prisma: PrismaClient) {}
+
+  async getAllSimpleVessels(time: Date): Promise<SimpleVessel[] | null> {
+    const newestLocs = await this.prisma.$queryRaw<
+      { mmsi: number; lon: number; lat: number; timestamp: number; heading: number | null }[]
+    >`
+      WITH 
+      endpoints AS (
+        SELECT mmsi, ST_EndPoint(ST_FilterByM(trajectory, 1, ${time.getTime()}, true)) AS endpoint
+        FROM vessel_trajectory
+      ),
+      newest_points AS (
+        SELECT mmsi, endpoint, TO_TIMESTAMP(ST_M(endpoint)) AS time
+        FROM endpoints
+        WHERE endpoint IS NOT NULL
+        AND TO_TIMESTAMP(ST_M(endpoint))
+        BETWEEN TO_TIMESTAMP(${time.getTime()}) - interval '1 hour' AND TO_TIMESTAMP(${time.getTime()})
+      )
+      SELECT mmsi, ST_X(endpoint) AS lon, ST_Y(endpoint) AS lat, ST_M(endpoint) AS timestamp, heading
+      FROM ais_message am, newest_points np
+      WHERE am.vessel_mmsi = np.mmsi
+      AND am.timestamp = np.time;
+    `
+
+    const result: SimpleVessel[] = newestLocs.map((loc) => ({
+      mmsi: loc.mmsi,
+      location: {
+        point: {
+          lon: loc.lon,
+          lat: loc.lat,
+        },
+        heading: loc.heading ? loc.heading : undefined,
+        timestamp: loc.timestamp,
+      },
+    }))
+
+    return result
   }
+
+  async getVesselPath(mmsi: number, startime: Date, endtime: Date): Promise<VesselPath | null> {
+    const results = await this.prisma.$queryRaw<
+      { lon: number; lat: number; timestamp: number; heading: number | null }[]
+    >`
+      WITH
+      subpath AS (
+          SELECT st_asbinary(st_filterbym(trajectory, ${startime.getTime()}, ${endtime.getTime()}, true)) AS filtered_trajectory
+          FROM vessel_trajectory
+          WHERE mmsi = ${mmsi}
+      ),
+      points AS (
+          SELECT ST_X(p.geom) AS lon, ST_Y(p.geom) AS lat, TO_TIMESTAMP(ST_M(p.geom)) AS timestamp
+          FROM st_dumppoints((SELECT filtered_trajectory FROM subpath)) AS p
+      )
+      SELECT lon, lat, EXTRACT(epoch from am.timestamp) * 1000 AS timestamp, heading
+      FROM points p, ais_message am
+      WHERE p.timestamp = am.timestamp
+      AND am.vessel_mmsi = ${mmsi}
+      ORDER BY p.timestamp ASC;
+    `
+
+    const result: VesselPath = {
+      locations: results.map((res) => ({
+        point: {
+          lon: res.lon,
+          lat: res.lat,
+        },
+        timestamp: res.timestamp,
+        heading: res.heading ? res.heading : undefined,
+      })),
+    }
+
+    return result
+  }
+
   async getVessel(mmsi: number): Promise<Vessel | null> {
     const result = await this.prisma.vessel.findUnique({
-      where: { id: mmsi },
+      where: { mmsi: mmsi },
+      include: {
+        ship_type: true,
+      },
     })
 
     if (!result) return null
@@ -18,34 +91,29 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     return this.convertToVessel(result)
   }
 
-  async getVesselHistory(mmsi: number, startime: Date, endtime: Date): Promise<AisMessage[] | null> {
-    const result = await this.prisma.ais_message.findMany({
-      where: {
-        vessel_id: mmsi,
-        timestamp: {
-          gte: startime,
-          lte: endtime,
-        },
-      },
-      orderBy: {
-        timestamp: 'desc',
-      },
+  async getVesselType(mmsi: number): Promise<ShipType | null> {
+    const result = await this.prisma.ship_type.findUnique({
+      where: { id: mmsi },
     })
 
-    if (!result || result.length === 0) return null
+    if (!result) return null
 
-    return result.map(this.convertToAisMessage)
+    return this.convertToVesselType(result)
   }
 
-  private convertToVessel(vessel: vessel): Vessel {
+  ///////////////////////////////////////////////////////////
+
+  private convertToVessel(
+    vessel: vessel & {
+      ship_type: ship_type | null
+    }
+  ): Vessel {
     return {
-      id: Number(vessel.id),
-      name: vessel.name,
       mmsi: Number(vessel.mmsi),
-      shipTypeId: vessel.ship_type_id ? Number(vessel.ship_type_id) : undefined,
+      name: vessel.name || undefined,
+      shipType: vessel.ship_type?.name || undefined,
       imo: vessel.imo ? Number(vessel.imo) : undefined,
       callSign: vessel.call_sign ? vessel.call_sign : undefined,
-      flag: vessel.flag ? vessel.flag : undefined,
       width: vessel.width ? Number(vessel.width) : undefined,
       length: vessel.length ? Number(vessel.length) : undefined,
       positionFixingDevice: vessel.position_fixing_device ? vessel.position_fixing_device : undefined,
@@ -56,24 +124,10 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     }
   }
 
-  private convertToAisMessage(ais_message: ais_message): AisMessage {
+  private convertToVesselType(ship_type: ship_type): ShipType {
     return {
-      id: Number(ais_message.id),
-      vesselId: Number(ais_message.vessel_id),
-      destinationId: ais_message.destination_id ? Number(ais_message.destination_id) : undefined,
-      mobileTypeId: ais_message.mobile_type_id ? Number(ais_message.mobile_type_id) : undefined,
-      navigationalStatusId: ais_message.navigational_status_id ? Number(ais_message.navigational_status_id) : undefined,
-      dataSourceType: ais_message.data_source_type ? ais_message.data_source_type : undefined,
-      timestamp: ais_message.timestamp,
-      latitude: parseFloat(ais_message.latitude.toString()),
-      longitude: parseFloat(ais_message.longitude.toString()),
-      rot: ais_message.rot ? parseFloat(ais_message.rot.toString()) : undefined,
-      sog: ais_message.sog ? parseFloat(ais_message.sog.toString()) : undefined,
-      cog: ais_message.cog ? parseFloat(ais_message.cog.toString()) : undefined,
-      heading: ais_message.heading ? Number(ais_message.heading) : undefined,
-      draught: ais_message.draught ? Number(ais_message.draught) : undefined,
-      cargoType: ais_message.cargo_type ? ais_message.cargo_type : undefined,
-      eta: ais_message.eta ? ais_message.eta : undefined,
+      id: Number(ship_type.id),
+      name: ship_type.name ? ship_type.name : undefined,
     }
   }
 

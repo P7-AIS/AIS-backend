@@ -1,75 +1,111 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis(version: "3.2.0")]
 }
 
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model ais_message {
-  id                     BigInt               @id @default(autoincrement())
-  vessel_id              BigInt
-  destination_id         BigInt?
-  mobile_type_id         BigInt?
-  navigational_status_id BigInt?
-  data_source_type       String?
-  timestamp              DateTime             @db.Timestamptz(6)
-  latitude               Decimal              @db.Decimal
-  longitude              Decimal              @db.Decimal
-  rot                    Decimal?             @db.Decimal
-  sog                    Decimal?             @db.Decimal
-  cog                    Decimal?             @db.Decimal
-  heading                Int?
-  draught                Decimal?             @db.Decimal
-  cargo_type             String?
-  eta                    DateTime?            @db.Timestamp(6)
-  mobile_type            mobile_type?         @relation(fields: [mobile_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ais_message_mobile_type_id_fk")
-  navigational_status    navigational_status? @relation(fields: [navigational_status_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "ais_message_navigational_status_id_fk")
-  destination            destination?         @relation(fields: [destination_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fact_destination_id_fk")
-  vessel                 vessel               @relation(fields: [vessel_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vessel_position_vessel_id_fk")
+  id                Int                      @id @default(autoincrement())
+  vessel_mmsi       BigInt
+  destination       String?
+  mobile_type_id    Int?
+  nav_status_id     Int?
+  data_source_type  String?
+  timestamp         DateTime                 @db.Timestamp(6)
+  cog               Float?                   @db.Real
+  rot               Float?                   @db.Real
+  sog               Float?                   @db.Real
+  coordm            Unsupported("geometry(PointM,4326)")?
+  heading           Float?                   @db.Real
+  draught           Float?                   @db.Real
+  cargo_type        String?
+  eta               DateTime?                @db.Timestamp(6)
+  traj_id           BigInt?
+  mobile_type       mobile_type?             @relation(fields: [mobile_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  nav_status        nav_status?              @relation(fields: [nav_status_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vessel_trajectory vessel_trajectory?       @relation(fields: [traj_id], references: [mmsi], onDelete: NoAction, onUpdate: NoAction)
+  vessel            vessel                   @relation(fields: [vessel_mmsi], references: [mmsi], onDelete: NoAction, onUpdate: NoAction)
+  @@index ([timestamp], name:"ais_message_timestamp_idx", type:BTree)
 }
 
-model destination {
-  id          BigInt        @id @default(autoincrement())
-  name        String?
-  ais_message ais_message[]
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model mid {
+  id            Int      @id @db.SmallInt
+  country       String
+  country_short String[] @db.Char(3)
+  vessel        vessel[]
 }
 
 model mobile_type {
-  id          BigInt        @id @default(autoincrement())
-  name        String?
+  id          Int           @id @default(autoincrement())
+  name        String
   ais_message ais_message[]
 }
 
-model navigational_status {
-  id          BigInt        @id @default(autoincrement())
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model monitored_zone {
+  id         Int                     @id @default(autoincrement())
+  created_at DateTime                @db.Time(6)
+  zone       Unsupported("geometry(Polygon,4326)")
+  @@index([zone], name:"zone_idx", type: Gist)
+}
+
+model nav_status {
+  id          Int           @id @default(autoincrement())
   name        String?
   ais_message ais_message[]
 }
 
 model ship_type {
-  id     BigInt   @id @default(autoincrement())
-  name   String?
+  id     Int      @id @default(autoincrement())
+  name   String
   vessel vessel[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model spatial_ref_sys {
+  srid      Int     @id
+  auth_name String? @db.VarChar(256)
+  auth_srid Int?
+  srtext    String? @db.VarChar(2048)
+  proj4text String? @db.VarChar(2048)
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model vessel {
-  id                     BigInt        @id @default(autoincrement())
-  name                   String
-  mmsi                   BigInt
-  ship_type_id           BigInt?
-  imo                    BigInt?
+  name                   String?
+  mmsi                   BigInt             @id
+  ship_type_id           Int?
+  imo                    Int?
   call_sign              String?
-  flag                   String?
-  width                  BigInt?
-  length                 BigInt?
+  width                  Int?
+  length                 Int?
   position_fixing_device String?
-  to_bow                 BigInt?
-  to_stern               BigInt?
-  to_port                BigInt?
-  to_starboard           BigInt?
+  to_bow                 Int?
+  to_stern               Int?
+  to_port                Int?
+  to_starboard           Int?
+  country_id             Int?               @db.SmallInt
   ais_message            ais_message[]
-  ship_type              ship_type?    @relation(fields: [ship_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "vessel_ship_type_fk")
+  mid                    mid?               @relation(fields: [country_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ship_type              ship_type?         @relation(fields: [ship_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  vessel_trajectory      vessel_trajectory?
+  @@index([mmsi], name:"mmsi_idx", type: Hash)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model vessel_trajectory {
+  mmsi          BigInt                  @id @default(autoincrement())
+  trajectory  Unsupported("geometry(LineStringM,4326)")
+  ais_message ais_message[]
+  vessel      vessel                  @relation(fields: [mmsi], references: [mmsi], onDelete: NoAction, onUpdate: NoAction, map: "vessel_id")
+  @@index([trajectory], name:"trajectory_idx", type: Gist)
 }

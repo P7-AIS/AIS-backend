@@ -3,9 +3,7 @@ import ILogicHandler from '../interfaces/ILogicHandler'
 import IMonitorable from '../interfaces/IMonitorable'
 
 export default class LogicHandler implements ILogicHandler, IMonitorable {
-  constructor(private readonly databaseHandler: IDatabaseHandler) {
-    this.databaseHandler = databaseHandler
-  }
+  constructor(private readonly databaseHandler: IDatabaseHandler) {}
 
   example(): void {
     throw new Error('Method not implemented.')
