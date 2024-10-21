@@ -111,6 +111,7 @@ export default class GRPCController implements IGRPCController, IMonitorable {
       call.write(response)
     }
 
+    writeData(call.request)
     interval = setInterval(() => writeData(call.request), 5000)
 
     call.on('close', () => {
