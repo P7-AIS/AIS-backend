@@ -7,20 +7,22 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
   constructor(private readonly prisma: PrismaClient) {}
 
   async getAllSimpleVessels(time: Date): Promise<SimpleVessel[] | null> {
-    const newestLocs = await this.prisma.$queryRaw<{ mmsi: number; point: Buffer; heading: number | null }[]>`
+    const newestLocs = await this.prisma.$queryRaw<
+      { mmsi: number; lon: number; lat: number; timestamp: number; heading: number | null }[]
+    >`
       WITH 
-      endpoints as (
-        SELECT mmsi, st_endpoint(st_filterbym(trajectory, 1, ${time.getTime()}, true)) as endpoint
+      endpoints AS (
+        SELECT mmsi, ST_EndPoint(ST_FilterByM(trajectory, 1, ${time.getTime()}, true)) AS endpoint
         FROM vessel_trajectory
       ),
-      newest_points as (
-        SELECT mmsi, endpoint, to_timestamp(st_m(endpoint)) as time
+      newest_points AS (
+        SELECT mmsi, endpoint, TO_TIMESTAMP(ST_M(endpoint)) AS time
         FROM endpoints
         WHERE endpoint IS NOT NULL
-        AND to_timestamp(st_m(endpoint))
-        BETWEEN to_timestamp(${time.getTime()}) - interval '1 hour' AND to_timestamp(${time.getTime()})
+        AND TO_TIMESTAMP(ST_M(endpoint))
+        BETWEEN TO_TIMESTAMP(${time.getTime()}) - interval '1 hour' AND TO_TIMESTAMP(${time.getTime()})
       )
-      SELECT mmsi, st_asbinary(endpoint) as point, heading
+      SELECT mmsi, ST_X(endpoint) AS lon, ST_Y(endpoint) AS lat, ST_M(endpoint) AS timestamp, heading
       FROM ais_message am, newest_points np
       WHERE am.vessel_mmsi = np.mmsi
       AND am.timestamp = np.time;
@@ -28,42 +30,52 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
 
     const result: SimpleVessel[] = newestLocs.map((loc) => ({
       mmsi: loc.mmsi,
-      binLocation: loc.point,
-      heading: loc.heading ? loc.heading : undefined,
+      location: {
+        point: {
+          lon: loc.lon,
+          lat: loc.lat,
+        },
+        heading: loc.heading ? loc.heading : undefined,
+        timestamp: new Date(loc.timestamp),
+      },
     }))
 
     return result
   }
 
   async getVesselPath(mmsi: number, startime: Date, endtime: Date): Promise<VesselPath | null> {
-    const pathResult = await this.prisma.$queryRaw<{ path: Buffer }[]>`
-      SELECT st_asbinary(st_filterbym(trajectory, ${startime.getTime()}, ${endtime.getTime()}, true)) as path
-      FROM vessel_trajectory
-      WHERE mmsi = ${mmsi};
-    `
-
-    const headingsResult = await this.prisma.$queryRaw<{ heading?: number }[]>`
+    const results = await this.prisma.$queryRaw<
+      { lon: number; lat: number; timestamp: number; heading: number | null }[]
+    >`
       WITH
       subpath AS (
           SELECT st_asbinary(st_filterbym(trajectory, ${startime.getTime()}, ${endtime.getTime()}, true)) AS filtered_trajectory
           FROM vessel_trajectory
           WHERE mmsi = ${mmsi}
       ),
-      times AS (
-          SELECT to_timestamp(st_m(p.geom)) AS timestamp
+      points AS (
+          SELECT ST_X(p.geom) AS lon, ST_Y(p.geom) AS lat, TO_TIMESTAMP(ST_M(p.geom)) AS timestamp
           FROM st_dumppoints((SELECT filtered_trajectory FROM subpath)) AS p
       )
-      SELECT heading
-      FROM times t, ais_message am
-      WHERE t.timestamp = am.timestamp
+      SELECT lon, lat, EXTRACT(epoch from am.timestamp) * 1000 AS timestamp, heading
+      FROM points p, ais_message am
+      WHERE p.timestamp = am.timestamp
       AND am.vessel_mmsi = ${mmsi}
-      ORDER BY t.timestamp ASC;
+      ORDER BY p.timestamp ASC;
     `
 
     const result: VesselPath = {
-      binPath: pathResult[0].path,
-      headings: headingsResult.map((res) => res.heading),
+      locations: results.map((res) => ({
+        point: {
+          lon: res.lon,
+          lat: res.lat,
+        },
+        timestamp: new Date(res.timestamp),
+        heading: res.heading ? res.heading : undefined,
+      })),
     }
+
+    console.log(result)
 
     return result
   }

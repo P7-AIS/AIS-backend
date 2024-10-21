@@ -12,7 +12,6 @@ import {
   VesselInfoRequest,
   VesselInfoResponse,
   VesselPath,
-  VesselPath_Heading,
   VesselPathRequest,
   VesselPathResponse,
 } from '../../proto/AIS-protobuf/ais'
@@ -64,13 +63,15 @@ export default class GRPCController implements IGRPCController, IMonitorable {
       return
     }
 
-    const grpcHeadings: VesselPath_Heading[] = vesselPath.headings.map((heading) => ({
-      heading: heading,
-    }))
-
     const grpcVesselPath: VesselPath = {
-      headings: grpcHeadings,
-      binPath: vesselPath.binPath,
+      locations: vesselPath.locations.map((location) => ({
+        point: {
+          lon: location.point.lon,
+          lat: location.point.lat,
+        },
+        timestamp: location.timestamp.getTime(),
+        heading: location.heading,
+      })),
     }
 
     const response: VesselPathResponse = {
@@ -90,8 +91,20 @@ export default class GRPCController implements IGRPCController, IMonitorable {
     const writeData = async (data: StreamingRequest) => {
       const allVessels = (await this.databaseHandler.getAllSimpleVessels(new Date(data.startTime))) || []
 
+      const grpcVessels: SimpleVessel[] = allVessels.map((vessel) => ({
+        mmsi: vessel.mmsi,
+        location: {
+          point: {
+            lon: vessel.location.point.lon,
+            lat: vessel.location.point.lat,
+          },
+          timestamp: vessel.location.timestamp.getTime(),
+          heading: vessel.location.heading,
+        },
+      }))
+
       const response: StreamingResponse = {
-        vessels: allVessels,
+        vessels: grpcVessels,
         monitoredVessels: [],
       }
 
