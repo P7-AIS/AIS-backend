@@ -6,6 +6,7 @@ import GRPCController from './implementations/GRPCController'
 import GRPCServer from './implementations/GRPCServer'
 import Monitor from './implementations/Monitor'
 import dotenv from 'dotenv'
+import { Queue } from 'bullmq'
 
 dotenv.config()
 
@@ -18,7 +19,8 @@ if (!SERVER_PORT || !SERVER_IP) {
 const databaseClient = new PrismaClient()
 const databaseHandler = new PrismaDatabaseHandler(databaseClient)
 const logicHandler = new LogicHandler(databaseHandler)
-const jobHandler = new JobHandler(logicHandler)
+const jobQueue = new Queue('AIS', { connection: { host: 'localhost', port: 6379 } })
+const jobHandler = new JobHandler(logicHandler, databaseHandler, jobQueue)
 const controller = new GRPCController(jobHandler, logicHandler, databaseHandler)
 const service = new GRPCServer(controller, SERVER_PORT, SERVER_IP)
 const monitor = new Monitor([databaseHandler, logicHandler, jobHandler, controller])

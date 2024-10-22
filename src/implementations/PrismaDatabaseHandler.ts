@@ -1,7 +1,7 @@
 import { PrismaClient, ship_type, vessel } from '@prisma/client'
 import IDatabaseHandler from '../interfaces/IDatabaseHandler'
 import IMonitorable from '../interfaces/IMonitorable'
-import { SimpleVessel, ShipType, Vessel, VesselPath } from '../../AIS-models/models'
+import { SimpleVessel, ShipType, Vessel, VesselPath, Point } from '../../AIS-models/models'
 
 export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
   constructor(private readonly prisma: PrismaClient) {}
@@ -76,6 +76,40 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     }
 
     return result
+  }
+
+  async getVesselsInArea(selectedArea: Point[], time: Date): Promise<number[]> {
+    const pointsStr = selectedArea.map((point) => `ST_MakePoint(${point.lon}, ${point.lat})`).join(', ')
+
+    const mmsis = await this.prisma.$queryRawUnsafe<{ mmsi: number }[]>(`
+      WITH
+      endpoints as (
+          SELECT mmsi, st_endpoint(st_filterbym(trajectory, 1, ${time.getTime()}, true)) as endpoint
+          FROM vessel_trajectory
+      ),
+      newest_points as (
+          SELECT mmsi, endpoint, to_timestamp(st_m(endpoint)) as time
+          FROM endpoints
+          WHERE endpoint IS NOT NULL
+          AND to_timestamp(st_m(endpoint))
+          BETWEEN to_timestamp(${time.getTime()}) - interval '1 hour' AND to_timestamp(${time.getTime()})
+      )
+      SELECT mmsi
+      FROM ais_message am, newest_points np
+      WHERE am.vessel_mmsi = np.mmsi
+      AND am.timestamp = np.time
+      AND st_contains(
+          st_setsrid(
+            st_makepolygon(
+              st_makeline(
+                ARRAY[${pointsStr}]
+              )
+          ), 4326),
+          np.endpoint
+      );
+    `)
+
+    return mmsis.map((mmsi) => mmsi.mmsi)
   }
 
   async getVessel(mmsi: number): Promise<Vessel | null> {

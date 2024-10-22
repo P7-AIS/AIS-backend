@@ -89,9 +89,10 @@ export default class GRPCController implements IGRPCController, IMonitorable {
     let interval: NodeJS.Timeout | null = null
 
     const writeData = async (data: StreamingRequest) => {
-      const allVessels = (await this.databaseHandler.getAllSimpleVessels(new Date(data.startTime))) || []
+      const simpleVessels = (await this.databaseHandler.getAllSimpleVessels(new Date(data.startTime))) || []
+      const monitoredVessels = await this.jobHandler.getMonitoredVessels(data.selectedArea, new Date(data.startTime))
 
-      const grpcVessels: SimpleVessel[] = allVessels.map((vessel) => ({
+      const grpcVessels: SimpleVessel[] = simpleVessels.map((vessel) => ({
         mmsi: vessel.mmsi,
         location: {
           point: {
@@ -105,7 +106,7 @@ export default class GRPCController implements IGRPCController, IMonitorable {
 
       const response: StreamingResponse = {
         vessels: grpcVessels,
-        monitoredVessels: [],
+        monitoredVessels: monitoredVessels,
       }
 
       call.write(response)
