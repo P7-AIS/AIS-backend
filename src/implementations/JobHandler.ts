@@ -3,9 +3,11 @@ import IDatabaseHandler from '../interfaces/IDatabaseHandler'
 import IJobHandler from '../interfaces/IJobHandler'
 import ILogicHandler from '../interfaces/ILogicHandler'
 import IMonitorable from '../interfaces/IMonitorable'
-import { Queue } from 'bullmq'
+import { Queue, QueueEvents } from 'bullmq'
 
 export default class JobHandler implements IJobHandler, IMonitorable {
+  private readonly queueEvents = new QueueEvents('foo')
+
   constructor(
     private readonly logicHandler: ILogicHandler,
     private readonly databaseHandler: IDatabaseHandler,
@@ -19,12 +21,29 @@ export default class JobHandler implements IJobHandler, IMonitorable {
       return []
     }
 
-    const vesselPaths = await this.databaseHandler.getBinVesselPaths(monitoredVesselIds, time, time)
+    const endtime = time
+    const starttime = new Date(endtime.getTime() - 60 * 60 * 1000)
 
-    const monitoredVessels: MonitoredVessel[] = monitoredVesselIds.map((mmsi) => ({
-      mmsi,
-      trustworthiness: 0,
-    }))
+    const trajectories = await this.databaseHandler.getVesselTrajectories(monitoredVesselIds, starttime, endtime)
+
+    if (!trajectories) {
+      return []
+    }
+
+    const aisMessages = await this.databaseHandler.getVesselMessages(monitoredVesselIds, starttime, endtime)
+
+    if (!aisMessages) {
+      return []
+    }
+
+    const job = await this.jobQueue.add('test', {
+      trajectories,
+      aisMessages,
+    })
+
+    const result: AISJobResult = await job.waitUntilFinished(this.queueEvents)
+
+    const monitoredVessels: MonitoredVessel[] = result
 
     return monitoredVessels
   }
