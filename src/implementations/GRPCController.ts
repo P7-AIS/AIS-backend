@@ -15,6 +15,7 @@ import {
   VesselPathRequest,
   VesselPathResponse,
 } from '../../proto/AIS-protobuf/ais'
+import { MonitoredVessel } from '../../AIS-models/models'
 
 export default class GRPCController implements IGRPCController, IMonitorable {
   [metod: string]: any
@@ -90,7 +91,12 @@ export default class GRPCController implements IGRPCController, IMonitorable {
 
     const writeData = async (data: StreamingRequest) => {
       const simpleVessels = (await this.databaseHandler.getAllSimpleVessels(new Date(data.startTime))) || []
-      const monitoredVessels = await this.jobHandler.getMonitoredVessels(data.selectedArea, new Date(data.startTime))
+
+      let monitoredVessels: MonitoredVessel[] = []
+
+      if (data.selectedArea.length >= 4) {
+        monitoredVessels = await this.jobHandler.getMonitoredVessels(data.selectedArea, new Date(data.startTime))
+      }
 
       const grpcVessels: SimpleVessel[] = simpleVessels.map((vessel) => ({
         mmsi: vessel.mmsi,

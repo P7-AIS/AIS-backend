@@ -78,7 +78,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     return result
   }
 
-  async getVesselsInArea(selectedArea: Point[], time: Date): Promise<number[]> {
+  async getVesselsInArea(selectedArea: Point[], time: Date): Promise<number[] | null> {
     const pointsStr = selectedArea.map((point) => `ST_MakePoint(${point.lon}, ${point.lat})`).join(', ')
 
     const mmsis = await this.prisma.$queryRawUnsafe<{ mmsi: number }[]>(`
@@ -110,6 +110,10 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     `)
 
     return mmsis.map((mmsi) => mmsi.mmsi)
+  }
+
+  async getBinVesselPaths(mmsis: number[], startime: Date, endtime: Date): Promise<VesselPath | null> {
+    return null
   }
 
   async getVessel(mmsi: number): Promise<Vessel | null> {

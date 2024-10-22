@@ -15,6 +15,12 @@ export default class JobHandler implements IJobHandler, IMonitorable {
   async getMonitoredVessels(selectionArea: Point[], time: Date): Promise<MonitoredVessel[]> {
     const monitoredVesselIds = await this.databaseHandler.getVesselsInArea(selectionArea, time)
 
+    if (!monitoredVesselIds) {
+      return []
+    }
+
+    const vesselPaths = await this.databaseHandler.getBinVesselPaths(monitoredVesselIds, time, time)
+
     const monitoredVessels: MonitoredVessel[] = monitoredVesselIds.map((mmsi) => ({
       mmsi,
       trustworthiness: 0,
