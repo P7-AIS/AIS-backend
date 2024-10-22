@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Install [Protobuf Compiler (protoc)](https://medium.com/@LogeshSakthivel/installing-protobuf-compiler-protoc-536e7770e13b)
-- Install [Docker](https://docs.docker.com/get-started/get-docker/)
+- Install [Redis](https://redis.io/docs/latest/operate/oss_and_stack/install/install-redis/)
 
 ## Development
 
@@ -12,7 +12,7 @@
 - Run `npx prisma generate` to create/update the prisma client class used in the code
 - `git submodule update --init --recursive` to update submodules
 - `npm run build:protos:(mac/win)` to generate TypeScript from .proto
-- `npm run redis` to start Redis server
+- `redis-server` in a new terminal (use WSL on Windows) to start Redis server
 - `npm run dev`
 
 ## Prisma commands
@@ -21,3 +21,9 @@
 - If changes are made to `schema.prisma`
   - Run `npx prisma migrate dev --name "{...}"` to create and apply new migration file
   - Run `npx prisma generate` to create/update the prisma client class used in the code
+
+## Redis commands
+
+- `redis-server` in a new terminal (use WSL on Windows) to start Redis server
+- `redis-cli` to connect to Redis instance
+  - `shutdown` to stop instance
