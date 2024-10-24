@@ -6,7 +6,11 @@ import IMonitorable from '../interfaces/IMonitorable'
 import ILogicHandler from '../interfaces/ILogicHandler'
 import IDatabaseHandler from '../interfaces/IDatabaseHandler'
 import {
+  MonitoredVesselsRequest,
+  MonitoredVesselsResponse,
   SimpleVessel,
+  SimpleVesselsRequest,
+  SimpleVesselsResponse,
   StreamingRequest,
   StreamingResponse,
   VesselInfoRequest,
@@ -16,6 +20,7 @@ import {
   VesselPathResponse,
 } from '../../proto/AIS-protobuf/ais'
 import { MonitoredVessel } from '../../AIS-models/models'
+import { Empty } from '../../proto/google/protobuf/empty'
 
 export default class GRPCController implements IGRPCController, IMonitorable {
   [metod: string]: any
@@ -84,12 +89,79 @@ export default class GRPCController implements IGRPCController, IMonitorable {
     callback(null, response)
   }
 
+  getSimpleVessels: grpc.handleUnaryCall<SimpleVesselsRequest, SimpleVesselsResponse> = async (
+    call: grpc.ServerUnaryCall<SimpleVesselsRequest, SimpleVesselsResponse>,
+    callback: grpc.sendUnaryData<SimpleVesselsResponse>
+  ) => {
+    const simpleVessels = await this.databaseHandler.getAllSimpleVessels(new Date(call.request.timestamp))
+
+    if (!simpleVessels) {
+      callback({ code: Status.NOT_FOUND }, null)
+      return
+    }
+
+    const grpcSimpleVessels: SimpleVessel[] = simpleVessels.map((vessel) => ({
+      mmsi: vessel.mmsi,
+      location: {
+        point: {
+          lon: vessel.location.point.lon,
+          lat: vessel.location.point.lat,
+        },
+        timestamp: vessel.location.timestamp,
+        heading: vessel.location.heading,
+      },
+    }))
+
+    const response: SimpleVesselsResponse = {
+      vessels: grpcSimpleVessels,
+    }
+
+    callback(null, response)
+  }
+
+  getMonitoredVessels: grpc.handleUnaryCall<MonitoredVesselsRequest, MonitoredVesselsResponse> = async (
+    call: grpc.ServerUnaryCall<MonitoredVesselsRequest, MonitoredVesselsResponse>,
+    callback: grpc.sendUnaryData<MonitoredVesselsResponse>
+  ) => {
+    if (call.request.selectedArea.length < 4) {
+      callback({ code: Status.INVALID_ARGUMENT }, null)
+      return
+    }
+
+    const monitoredVessels = await this.jobHandler.getMonitoredVessels(
+      call.request.selectedArea,
+      new Date(call.request.timestamp)
+    )
+
+    const grpcMonitoredVessels: MonitoredVessel[] = monitoredVessels.map((vessel) => ({
+      mmsi: vessel.mmsi,
+      reason: vessel.reason,
+      trustworthiness: vessel.trustworthiness,
+    }))
+
+    const response: MonitoredVesselsResponse = {
+      vessels: grpcMonitoredVessels,
+    }
+
+    callback(null, response)
+  }
+
   startStreaming: grpc.handleServerStreamingCall<StreamingRequest, StreamingResponse> = (
     call: grpc.ServerWritableStream<StreamingRequest, StreamingResponse>
   ) => {
-    let interval: NodeJS.Timeout | null = null
+    const randomStreamName = Math.random().toString(36).substring(7)
+
+    let deliverInterval: NodeJS.Timeout | null = null
+    let heartbeatInterval: NodeJS.Timeout = setInterval(() => {
+      console.log(randomStreamName, new Date().getTime(), call.cancelled, call.closed, call.writable)
+    }, 5000)
 
     const writeData = async (data: StreamingRequest) => {
+      if (!call.writable) {
+        endStream()
+        return
+      }
+
       const simpleVessels = (await this.databaseHandler.getAllSimpleVessels(new Date(data.startTime))) || []
 
       let monitoredVessels: MonitoredVessel[] = []
@@ -118,14 +190,30 @@ export default class GRPCController implements IGRPCController, IMonitorable {
       call.write(response)
     }
 
-    writeData(call.request)
-    interval = setInterval(() => writeData(call.request), 5000)
-
-    call.on('close', () => {
-      if (interval) {
-        clearInterval(interval)
-        interval = null
+    const endStream = () => {
+      console.log('ending stream')
+      if (deliverInterval) {
+        clearInterval(heartbeatInterval)
+        clearInterval(deliverInterval)
+        deliverInterval = null
       }
+      call.end()
+    }
+
+    writeData(call.request)
+
+    deliverInterval = setInterval(async () => {
+      await writeData(call.request)
+    }, 1000000)
+
+    call.on('cancelled', () => {
+      console.log('Stream cancelled by client.')
+      endStream()
+    })
+
+    call.on('end', () => {
+      console.log('Stream ended.')
+      endStream()
     })
   }
 

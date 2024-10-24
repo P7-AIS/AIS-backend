@@ -36,14 +36,14 @@ export default class JobHandler implements IJobHandler, IMonitorable {
       return []
     }
 
-    const job = await this.jobQueue.add('test', {
-      trajectories,
-      aisMessages,
-    })
+    // const job = await this.jobQueue.add('test', {
+    //   trajectories,
+    //   aisMessages,
+    // })
 
-    const result: AISJobResult = await job.waitUntilFinished(this.queueEvents)
+    // const result: AISJobResult = await job.waitUntilFinished(this.queueEvents)
 
-    const monitoredVessels: MonitoredVessel[] = result
+    const monitoredVessels: MonitoredVessel[] = []
 
     return monitoredVessels
   }
