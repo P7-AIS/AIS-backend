@@ -6,46 +6,72 @@ import IMonitorable from '../interfaces/IMonitorable'
 import { Queue, QueueEvents } from 'bullmq'
 
 export default class JobHandler implements IJobHandler, IMonitorable {
-  private readonly queueEvents = new QueueEvents('foo')
-
   constructor(
     private readonly logicHandler: ILogicHandler,
     private readonly databaseHandler: IDatabaseHandler,
-    private readonly jobQueue: Queue<AISJobData, AISJobResult>
-  ) {}
+    private readonly jobQueue: Queue<AISJobData, AISJobResult>,
+    private readonly queueEvents: QueueEvents
+  ) {
+    this.queueEvents.on('completed', async (event) => {
+      console.log(`Job ${event.jobId} completed successfully`)
+    })
 
-  async getMonitoredVessels(selectionArea: Point[], time: Date): Promise<MonitoredVessel[]> {
-    const monitoredVesselIds = await this.databaseHandler.getVesselsInArea(selectionArea, time)
+    this.queueEvents.on('failed', async (event) => {
+      console.error(`Job ${event.jobId} failed:`, event.failedReason)
+    })
+  }
 
-    if (!monitoredVesselIds) {
+  public async getMonitoredVessels(selectionArea: Point[], time: Date): Promise<MonitoredVessel[]> {
+    try {
+      const jobData = await this.getJobData(selectionArea, time)
+      if (jobData.length === 0) return []
+
+      const monitoredVessels = await this.runJobs(jobData, time)
+
+      return monitoredVessels
+    } catch (error) {
+      console.error('Error in getMonitoredVessels:', error)
       return []
     }
+  }
+
+  private async getJobData(selectionArea: Point[], time: Date): Promise<AISJobData[]> {
+    const monitoredVesselIds = await this.databaseHandler.getVesselsInArea(selectionArea, time)
+    if (!monitoredVesselIds) return []
 
     const endtime = time
     const starttime = new Date(endtime.getTime() - 60 * 60 * 1000)
 
-    const trajectories = await this.databaseHandler.getVesselTrajectories(monitoredVesselIds, starttime, endtime)
+    const [trajectories, aisMessages] = await Promise.all([
+      this.databaseHandler.getVesselTrajectories(monitoredVesselIds, starttime, endtime),
+      Promise.all(
+        monitoredVesselIds.map(async (mmsi) => ({
+          mmsi,
+          messages: (await this.databaseHandler.getVesselMessages([mmsi], starttime, endtime)) || [],
+        }))
+      ),
+    ])
 
-    if (!trajectories) {
-      return []
-    }
+    return (
+      trajectories?.map((trajectory) => ({
+        mmsi: trajectory.mmsi,
+        trajectory,
+        aisMessages: aisMessages.find((ais) => ais.mmsi === trajectory.mmsi)?.messages || [],
+      })) || []
+    )
+  }
 
-    const aisMessages = await this.databaseHandler.getVesselMessages(monitoredVesselIds, starttime, endtime)
+  private async runJobs(jobData: AISJobData[], time: Date): Promise<MonitoredVessel[]> {
+    const jobs = await this.jobQueue.addBulk(
+      jobData.map((data) => ({
+        name: `${data.mmsi}-${time.toISOString()}`,
+        data,
+      }))
+    )
 
-    if (!aisMessages) {
-      return []
-    }
+    const results: AISJobResult[] = await Promise.all(jobs.map((job) => job.waitUntilFinished(this.queueEvents)))
 
-    // const job = await this.jobQueue.add('test', {
-    //   trajectories,
-    //   aisMessages,
-    // })
-
-    // const result: AISJobResult = await job.waitUntilFinished(this.queueEvents)
-
-    const monitoredVessels: MonitoredVessel[] = []
-
-    return monitoredVessels
+    return results
   }
 
   getAccumulatedLogs(): string[] {
