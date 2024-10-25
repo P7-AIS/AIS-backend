@@ -1,4 +1,4 @@
-import { Point, MonitoredVessel, AISJobData, AISJobResult } from '../../AIS-models/models'
+import { Point, MonitoredVessel, AISJobData, AISJobResult, AISWorkerAlgorithm } from '../../AIS-models/models'
 import IDatabaseHandler from '../interfaces/IDatabaseHandler'
 import IJobHandler from '../interfaces/IJobHandler'
 import ILogicHandler from '../interfaces/ILogicHandler'
@@ -54,6 +54,7 @@ export default class JobHandler implements IJobHandler, IMonitorable {
 
     return (
       trajectories?.map((trajectory) => ({
+        algorithm: AISWorkerAlgorithm.RANDOM,
         mmsi: trajectory.mmsi,
         trajectory,
         aisMessages: aisMessages.find((ais) => ais.mmsi === trajectory.mmsi)?.messages || [],
