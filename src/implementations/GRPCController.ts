@@ -20,7 +20,6 @@ import {
   VesselPathResponse,
 } from '../../proto/AIS-protobuf/ais'
 import { MonitoredVessel } from '../../AIS-models/models'
-import { Empty } from '../../proto/google/protobuf/empty'
 
 export default class GRPCController implements IGRPCController, IMonitorable {
   [metod: string]: any

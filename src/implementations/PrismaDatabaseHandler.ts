@@ -8,7 +8,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
 
   async getAllSimpleVessels(time: Date): Promise<SimpleVessel[] | null> {
     const newestLocs = await this.prisma.$queryRaw<
-      { mmsi: number; lon: number; lat: number; timestamp: number; heading: number | null }[]
+      { mmsi: bigint; lon: number; lat: number; timestamp: number; heading: number | null }[]
     >`
       WITH 
       endpoints AS (
@@ -29,7 +29,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     `
 
     const result: SimpleVessel[] = newestLocs.map((loc) => ({
-      mmsi: loc.mmsi,
+      mmsi: Number(loc.mmsi),
       location: {
         point: {
           lon: loc.lon,
@@ -81,7 +81,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
   async getVesselsInArea(selectedArea: Point[], time: Date): Promise<number[] | null> {
     const pointsStr = selectedArea.map((point) => `ST_MakePoint(${point.lon}, ${point.lat})`).join(', ')
 
-    const mmsis = await this.prisma.$queryRawUnsafe<{ mmsi: number }[]>(`
+    const mmsis = await this.prisma.$queryRawUnsafe<{ mmsi: bigint }[]>(`
       WITH
       endpoints as (
           SELECT mmsi, st_endpoint(st_filterbym(trajectory, 1, ${time.getTime()}, true)) as endpoint
@@ -109,20 +109,20 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
       );
     `)
 
-    return mmsis.map((mmsi) => mmsi.mmsi)
+    return mmsis.map((mmsi) => Number(mmsi.mmsi))
   }
 
   async getVesselTrajectories(mmsis: number[], startime: Date, endtime: Date): Promise<Trajectory[] | null> {
     const mmsiStr = mmsis.join(', ')
 
-    const result = await this.prisma.$queryRawUnsafe<{ mmsi: number; path: Buffer }[]>(`
+    const result = await this.prisma.$queryRawUnsafe<{ mmsi: bigint; path: Buffer }[]>(`
       SELECT mmsi, st_asbinary(st_filterbym(trajectory, ${startime.getTime()}, ${endtime.getTime()}, true)) AS path
       FROM vessel_trajectory
       WHERE mmsi IN (${mmsiStr})
     `)
 
     const trajectories: Trajectory[] = result.map((traj) => ({
-      mmsi: traj.mmsi,
+      mmsi: Number(traj.mmsi),
       binPath: traj.path,
     }))
 
@@ -135,7 +135,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     const result = await this.prisma.$queryRawUnsafe<
       {
         id: number
-        vessel_mmsi: number
+        vessel_mmsi: bigint
         destination: string | null
         mobile_type_id: number | null
         nav_status_id: number | null
@@ -158,7 +158,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
 
     const messages: AisMessage[] = result.map((msg) => ({
       id: msg.id,
-      mmsi: msg.vessel_mmsi,
+      mmsi: Number(msg.vessel_mmsi),
       timestamp: msg.timestamp,
       destination: msg.destination ? msg.destination : undefined,
       mobileTypeId: msg.mobile_type_id ? msg.mobile_type_id : undefined,
