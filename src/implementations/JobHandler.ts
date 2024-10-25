@@ -1,3 +1,4 @@
+import { groupBy } from 'lodash'
 import { Point, MonitoredVessel, AISJobData, AISJobResult, AISWorkerAlgorithm } from '../../AIS-models/models'
 import IDatabaseHandler from '../interfaces/IDatabaseHandler'
 import IJobHandler from '../interfaces/IJobHandler'
@@ -44,20 +45,19 @@ export default class JobHandler implements IJobHandler, IMonitorable {
 
     const [trajectories, aisMessages] = await Promise.all([
       this.databaseHandler.getVesselTrajectories(monitoredVesselIds, starttime, endtime),
-      Promise.all(
-        monitoredVesselIds.map(async (mmsi) => ({
-          mmsi,
-          messages: (await this.databaseHandler.getVesselMessages([mmsi], starttime, endtime)) || [],
-        }))
-      ),
+      this.databaseHandler.getVesselMessages(monitoredVesselIds, starttime, endtime),
     ])
 
+    if (!trajectories || !aisMessages) return []
+
+    const groupedMessages = groupBy(aisMessages, 'mmsi')
+
     return (
-      trajectories?.map((trajectory) => ({
+      monitoredVesselIds.map((mmsi) => ({
+        mmsi,
+        trajectory: trajectories.find((trajectory) => trajectory.mmsi === mmsi)!,
+        aisMessages: groupedMessages[mmsi]!,
         algorithm: AISWorkerAlgorithm.RANDOM,
-        mmsi: trajectory.mmsi,
-        trajectory,
-        aisMessages: aisMessages.find((ais) => ais.mmsi === trajectory.mmsi)?.messages || [],
       })) || []
     )
   }
