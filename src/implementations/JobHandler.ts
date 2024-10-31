@@ -67,6 +67,13 @@ export default class JobHandler implements IJobHandler, IMonitorable {
       jobData.map((data) => ({
         name: `${data.mmsi}-${time.toISOString()}`,
         data,
+        opts: {
+          removeOnComplete: {
+            age: 100, // keep up to 100 secs
+            count: 1000, // keep up to 1000 jobs
+          },
+          removeOnFail: true,
+        },
       }))
     )
 
