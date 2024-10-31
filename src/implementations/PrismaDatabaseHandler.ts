@@ -1,14 +1,14 @@
 import { PrismaClient, ship_type, vessel } from '@prisma/client'
 import IDatabaseHandler from '../interfaces/IDatabaseHandler'
 import IMonitorable from '../interfaces/IMonitorable'
-import { SimpleVessel, ShipType, Vessel, VesselPath } from '../../AIS-models/models'
+import { SimpleVessel, ShipType, Vessel, VesselPath, Point, Trajectory, AisMessage } from '../../AIS-models/models'
 
 export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
   constructor(private readonly prisma: PrismaClient) {}
 
   async getAllSimpleVessels(time: Date): Promise<SimpleVessel[] | null> {
     const newestLocs = await this.prisma.$queryRaw<
-      { mmsi: number; lon: number; lat: number; timestamp: number; heading: number | null }[]
+      { mmsi: bigint; lon: number; lat: number; timestamp: number; heading: number | null }[]
     >`
       WITH 
       endpoints AS (
@@ -29,7 +29,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     `
 
     const result: SimpleVessel[] = newestLocs.map((loc) => ({
-      mmsi: loc.mmsi,
+      mmsi: Number(loc.mmsi),
       location: {
         point: {
           lon: loc.lon,
@@ -76,6 +76,104 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     }
 
     return result
+  }
+
+  async getVesselsInArea(selectedArea: Point[], time: Date): Promise<number[] | null> {
+    const pointsStr = selectedArea.map((point) => `ST_MakePoint(${point.lon}, ${point.lat})`).join(', ')
+
+    const mmsis = await this.prisma.$queryRawUnsafe<{ mmsi: bigint }[]>(`
+      WITH
+      endpoints as (
+          SELECT mmsi, st_endpoint(st_filterbym(trajectory, 1, ${time.getTime()}, true)) as endpoint
+          FROM vessel_trajectory
+      ),
+      newest_points as (
+          SELECT mmsi, endpoint, to_timestamp(st_m(endpoint)) as time
+          FROM endpoints
+          WHERE endpoint IS NOT NULL
+          AND to_timestamp(st_m(endpoint))
+          BETWEEN to_timestamp(${time.getTime()}) - interval '1 hour' AND to_timestamp(${time.getTime()})
+      )
+      SELECT mmsi
+      FROM ais_message am, newest_points np
+      WHERE am.vessel_mmsi = np.mmsi
+      AND am.timestamp = np.time
+      AND st_contains(
+          st_setsrid(
+            st_makepolygon(
+              st_makeline(
+                ARRAY[${pointsStr}]
+              )
+          ), 4326),
+          np.endpoint
+      );
+    `)
+
+    return mmsis.map((mmsi) => Number(mmsi.mmsi))
+  }
+
+  async getVesselTrajectories(mmsis: number[], startime: Date, endtime: Date): Promise<Trajectory[] | null> {
+    const mmsiStr = mmsis.join(', ')
+
+    const result = await this.prisma.$queryRawUnsafe<{ mmsi: bigint; path: Buffer }[]>(`
+      SELECT mmsi, st_asbinary(st_filterbym(trajectory, ${startime.getTime()}, ${endtime.getTime()}, true)) AS path
+      FROM vessel_trajectory
+      WHERE mmsi IN (${mmsiStr})
+    `)
+
+    const trajectories: Trajectory[] = result.map((traj) => ({
+      mmsi: Number(traj.mmsi),
+      binPath: traj.path,
+    }))
+
+    return trajectories
+  }
+
+  async getVesselMessages(mmsis: number[], startime: Date, endtime: Date): Promise<AisMessage[] | null> {
+    const mmsiStr = mmsis.join(', ')
+
+    const result = await this.prisma.$queryRawUnsafe<
+      {
+        id: number
+        vessel_mmsi: bigint
+        destination: string | null
+        mobile_type_id: number | null
+        nav_status_id: number | null
+        data_source_type: string | null
+        timestamp: Date
+        cog: number | null
+        rot: number | null
+        sog: number | null
+        heading: number | null
+        draught: number | null
+        cargo_type: string | null
+        eta: Date | null
+      }[]
+    >(`
+      SELECT id, vessel_mmsi, destination, mobile_type_id, nav_status_id, data_source_type, timestamp, cog, rot, sog, heading, draught, cargo_type, eta
+      FROM ais_message
+      WHERE vessel_mmsi IN (${mmsiStr})
+      AND EXTRACT(EPOCH FROM timestamp) BETWEEN ${startime.getTime()} AND ${endtime.getTime()};
+    `)
+
+    const messages: AisMessage[] = result.map((msg) => ({
+      id: msg.id,
+      mmsi: Number(msg.vessel_mmsi),
+      timestamp: msg.timestamp,
+      destination: msg.destination ? msg.destination : undefined,
+      mobileTypeId: msg.mobile_type_id ? msg.mobile_type_id : undefined,
+      navigationalStatusId: msg.nav_status_id ? msg.nav_status_id : undefined,
+      dataSourceType: msg.data_source_type ? msg.data_source_type : undefined,
+      rot: msg.rot ? msg.rot : undefined,
+      sog: msg.sog ? msg.sog : undefined,
+      cog: msg.cog ? msg.cog : undefined,
+      heading: msg.heading ? msg.heading : undefined,
+      draught: msg.draught ? msg.draught : undefined,
+      cargoType: msg.cargo_type ? msg.cargo_type : undefined,
+      eta: msg.eta ? msg.eta : undefined,
+    }))
+
+    return messages
   }
 
   async getVessel(mmsi: number): Promise<Vessel | null> {
