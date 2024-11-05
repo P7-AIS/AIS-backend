@@ -1,7 +1,8 @@
 import { PrismaClient, ship_type, vessel } from '@prisma/client'
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended'
 import PrismaDatabaseHandler from '../implementations/PrismaDatabaseHandler'
-import { Vessel } from '../../AIS-models/models'
+import { ShipType, Vessel } from '../../AIS-models/models'
+import { SimpleVessel } from '../../proto/AIS-protobuf/ais'
 
 // Mock Prisma Client
 const prismaMock = mockDeep<PrismaClient>()
@@ -98,7 +99,7 @@ describe('DatabaseHandler - converters', () => {
     })
   })
 
-  it('should handle nullable fields', () => {
+  it('should convert prisma vessel with null fields to models Vessel with undefined fields', () => {
     const prismaVessel: vessel & {
       ship_type: ship_type | null
     } = {
@@ -135,5 +136,107 @@ describe('DatabaseHandler - converters', () => {
       toPort: undefined,
       toStarboard: undefined,
     })
+  })
+
+  it('should convert vessel type to shipType', () => {
+    const prismaShipType: ship_type = {
+      id: 123,
+      name: 'maverick',
+    }
+
+    const privateMethodProto = Object.getPrototypeOf(databaseHandler) //to test private method this is necessary https://stackoverflow.com/questions/48906484/how-to-unit-test-private-methods-in-typescript
+    const res = privateMethodProto.convertToVesselType(prismaShipType)
+    expect(res).toEqual<ShipType>({
+      id: 123,
+      name: 'maverick',
+    })
+  })
+})
+
+describe('DatabaseHandler - getAllSimpleVessels', () => {
+  it('should return transformed SimpleVessel objects when data is returned from the query', async () => {
+    const testDate = new Date('2024-01-01T12:00:00Z')
+    const mockQueryResult = [
+      {
+        mmsi: BigInt(123456789),
+        lon: 100.5,
+        lat: -45.5,
+        timestamp: 1641013200000,
+        heading: 90,
+      },
+      {
+        mmsi: BigInt(987654321),
+        lon: 101.5,
+        lat: -46.5,
+        timestamp: 1641016800000,
+        heading: null,
+      },
+    ]
+
+    prismaMock.$queryRaw.mockResolvedValue(mockQueryResult)
+    const result = await databaseHandler.getAllSimpleVessels(testDate)
+
+    const expectedOutput: SimpleVessel[] = [
+      {
+        mmsi: 123456789,
+        location: {
+          point: {
+            lon: 100.5,
+            lat: -45.5,
+          },
+          heading: 90,
+          timestamp: 1641013200000,
+        },
+      },
+      {
+        mmsi: 987654321,
+        location: {
+          point: {
+            lon: 101.5,
+            lat: -46.5,
+          },
+          heading: undefined,
+          timestamp: 1641016800000,
+        },
+      },
+    ]
+
+    expect(result).toEqual(expectedOutput)
+  })
+
+  it('should return an empty array when the query returns no results', async () => {
+    const testDate = new Date('2024-01-01T12:00:00Z')
+    prismaMock.$queryRaw.mockResolvedValue([])
+    const result = await databaseHandler.getAllSimpleVessels(testDate)
+    expect(result).toEqual([])
+  })
+
+  it('should handle null heading values correctly', async () => {
+    const testDate = new Date('2024-01-01T12:00:00Z')
+    const mockQueryResult = [
+      {
+        mmsi: BigInt(123456789),
+        lon: 100.5,
+        lat: -45.5,
+        timestamp: 1641013200000,
+        heading: null,
+      },
+    ]
+    prismaMock.$queryRaw.mockResolvedValue(mockQueryResult)
+    const result = await databaseHandler.getAllSimpleVessels(testDate)
+    const expectedOutput: SimpleVessel[] = [
+      {
+        mmsi: 123456789,
+        location: {
+          point: {
+            lon: 100.5,
+            lat: -45.5,
+          },
+          heading: undefined,
+          timestamp: 1641013200000,
+        },
+      },
+    ]
+    expect(result).toEqual(expectedOutput)
   })
 })
