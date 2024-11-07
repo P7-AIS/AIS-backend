@@ -1,7 +1,7 @@
 import { PrismaClient, ship_type, vessel } from '@prisma/client'
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended'
 import PrismaDatabaseHandler from '../implementations/PrismaDatabaseHandler'
-import { ShipType, Vessel } from '../../AIS-models/models'
+import { AisMessage, Point, ShipType, Trajectory, Vessel, VesselPath } from '../../AIS-models/models'
 import { SimpleVessel } from '../../proto/AIS-protobuf/ais'
 
 // Mock Prisma Client
@@ -154,7 +154,7 @@ describe('DatabaseHandler - converters', () => {
 })
 
 describe('DatabaseHandler - getAllSimpleVessels', () => {
-  it('should return transformed SimpleVessel objects when data is returned from the query', async () => {
+  it('should return SimpleVessel objects when data is returned from the query', async () => {
     const testDate = new Date('2024-01-01T12:00:00Z')
     const mockQueryResult = [
       {
@@ -238,5 +238,241 @@ describe('DatabaseHandler - getAllSimpleVessels', () => {
       },
     ]
     expect(result).toEqual(expectedOutput)
+  })
+})
+
+describe('DatabaseHandler - getVesselPath', () => {
+  it('should return SimpleVessel objects when data is returned from the query', async () => {
+    const start = new Date('123456789')
+    const end = new Date('234567890')
+    const mmsi = 12345
+    const mockQueryResult = [
+      {
+        lon: 100.5,
+        lat: -45.5,
+        timestamp: 1641013200000,
+        heading: 90,
+      },
+      {
+        lon: 95,
+        lat: 95,
+        timestamp: 12345,
+        heading: null,
+      },
+      {
+        lon: 100.5,
+        lat: -45.5,
+        timestamp: 1641013200000,
+        heading: 90,
+      },
+    ]
+
+    prismaMock.$queryRaw.mockResolvedValue(mockQueryResult)
+    const result = await databaseHandler.getVesselPath(mmsi, start, end)
+
+    const expectedOutput: VesselPath = {
+      locations: [
+        {
+          point: {
+            lon: 100.5,
+            lat: -45.5,
+          },
+          timestamp: 1641013200000,
+          heading: 90,
+        },
+        {
+          point: {
+            lon: 95,
+            lat: 95,
+          },
+          timestamp: 12345,
+          heading: undefined,
+        },
+        {
+          point: {
+            lon: 100.5,
+            lat: -45.5,
+          },
+          timestamp: 1641013200000,
+          heading: 90,
+        },
+      ],
+    }
+
+    expect(result).toEqual(expectedOutput)
+  })
+
+  it('should return vesselpath with empty locations array if no path found by query', async () => {
+    const start = new Date('123456789')
+    const end = new Date('234567890')
+    const mmsi = 12345
+
+    prismaMock.$queryRaw.mockResolvedValue([])
+    const result = await databaseHandler.getVesselPath(mmsi, start, end)
+    expect(result).toEqual<VesselPath>({ locations: [] })
+  })
+})
+
+describe('DatabaseHandler - getVesselsInArea', () => {
+  it('should return array of mmsis if return by query', async () => {
+    const area: Point[] = [] //not used for anything
+    const time = new Date()
+
+    const queryRes = [{ mmsi: 123 }, { mmsi: 234 }, { mmsi: 345 }, { mmsi: 456 }]
+    prismaMock.$queryRawUnsafe.mockResolvedValue(queryRes)
+    const expectedRes = [123, 234, 345, 456]
+    const res = await databaseHandler.getVesselsInArea(area, time)
+    expect(res).toEqual(expectedRes)
+  })
+
+  it('should return empty array if no mmsis return by query', async () => {
+    const area: Point[] = [] //not used for anything
+    const time = new Date()
+
+    const queryRes: { mmsi: bigint }[] = []
+    prismaMock.$queryRawUnsafe.mockResolvedValue(queryRes)
+    const expectedRes: Number[] = []
+    const res = await databaseHandler.getVesselsInArea(area, time)
+    expect(res).toEqual(expectedRes)
+  })
+})
+
+describe('DatabaseHandler - getVesselTrajectories', () => {
+  it('should return trajectory array if trajectories are returned by query', async () => {
+    const mmsis = [123, 234, 345]
+    const start = new Date()
+    const end = new Date()
+
+    const queryRes = [
+      { mmsi: 123, path: Buffer.from('buffer1', 'utf-8') },
+      { mmsi: 234, path: Buffer.from('buffer2', 'utf-8') },
+      { mmsi: 345, path: Buffer.from('buffer3', 'utf-8') },
+    ]
+    prismaMock.$queryRawUnsafe.mockResolvedValue(queryRes)
+    const expectedRes: Trajectory[] = [
+      { mmsi: 123, binPath: Buffer.from('buffer1', 'utf-8') },
+      { mmsi: 234, binPath: Buffer.from('buffer2', 'utf-8') },
+      { mmsi: 345, binPath: Buffer.from('buffer3', 'utf-8') },
+    ]
+
+    const res = await databaseHandler.getVesselTrajectories(mmsis, start, end)
+    expect(res).toEqual(expectedRes)
+  })
+
+  it('should return empty trajectory array if no trajectories are returned by query', async () => {
+    const mmsis: number[] = []
+    const start = new Date()
+    const end = new Date()
+    const queryRes: { mmsi: bigint; path: Buffer }[] = []
+    const expectedRes: Trajectory[] = []
+    prismaMock.$queryRawUnsafe.mockResolvedValue(queryRes)
+    const res = await databaseHandler.getVesselTrajectories(mmsis, start, end)
+    expect(res).toEqual(expectedRes)
+  })
+})
+
+describe('DatabaseHandler - getVesselMessages', () => {
+  it('should return empty messages array if no messages returned by query', async () => {
+    const mmsis: number[] = []
+    const start = new Date()
+    const end = new Date()
+
+    const queryRes: any = [] ///to not write entire type again
+    prismaMock.$queryRawUnsafe.mockResolvedValue(queryRes)
+    const res = await databaseHandler.getVesselMessages(mmsis, start, end)
+    expect(res).toEqual([])
+  })
+
+  it('should return array of ais messages when query returns results', async () => {
+    const mmsis: number[] = []
+    const start = new Date()
+    const end = new Date()
+    const date = new Date()
+    const queryRes: {
+      id: number
+      vessel_mmsi: bigint
+      destination: string | null
+      mobile_type_id: number | null
+      nav_status_id: number | null
+      data_source_type: string | null
+      timestamp: Date
+      cog: number | null
+      rot: number | null
+      sog: number | null
+      heading: number | null
+      draught: number | null
+      cargo_type: string | null
+      eta: Date | null
+    }[] = [
+      {
+        id: 1,
+        vessel_mmsi: BigInt(123),
+        destination: null,
+        mobile_type_id: null,
+        nav_status_id: null,
+        data_source_type: null,
+        timestamp: date,
+        cog: null,
+        rot: null,
+        sog: null,
+        heading: null,
+        draught: null,
+        cargo_type: null,
+        eta: null,
+      },
+      {
+        id: 2,
+        vessel_mmsi: BigInt(234),
+        destination: 'test',
+        mobile_type_id: 2,
+        nav_status_id: 3,
+        data_source_type: 'this',
+        timestamp: date,
+        cog: 12,
+        rot: 23,
+        sog: 34,
+        heading: 189,
+        draught: 18,
+        cargo_type: 'tanker',
+        eta: new Date('2024-01-01'),
+      },
+    ]
+    prismaMock.$queryRawUnsafe.mockResolvedValue(queryRes)
+    const res = await databaseHandler.getVesselMessages(mmsis, start, end)
+    const expectedRes: AisMessage[] = [
+      {
+        id: 1,
+        mmsi: 123,
+        timestamp: date,
+        destination: undefined,
+        mobileTypeId: undefined,
+        navigationalStatusId: undefined,
+        dataSourceType: undefined,
+        rot: undefined,
+        sog: undefined,
+        cog: undefined,
+        heading: undefined,
+        draught: undefined,
+        cargoType: undefined,
+        eta: undefined,
+      },
+      {
+        id: 2,
+        mmsi: 234,
+        timestamp: date,
+        destination: 'test',
+        mobileTypeId: 2,
+        navigationalStatusId: 3,
+        dataSourceType: 'this',
+        cog: 12,
+        rot: 23,
+        sog: 34,
+        heading: 189,
+        draught: 18,
+        cargoType: 'tanker',
+        eta: new Date('2024-01-01'),
+      },
+    ]
+    expect(res).toEqual(expectedRes)
   })
 })
