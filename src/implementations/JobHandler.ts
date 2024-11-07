@@ -57,7 +57,7 @@ export default class JobHandler implements IJobHandler, IMonitorable {
         mmsi,
         trajectory: trajectories.find((trajectory) => trajectory.mmsi === mmsi)!,
         aisMessages: groupedMessages[mmsi]!,
-        algorithm: AISWorkerAlgorithm.HASHED,
+        algorithm: AISWorkerAlgorithm.SIMPLE,
       })) || []
     )
   }

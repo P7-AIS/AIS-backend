@@ -27,3 +27,4 @@
 - `redis-server` in a new terminal (use WSL on Windows) to start Redis server
 - `redis-cli` to connect to Redis instance
   - `shutdown` to stop instance
+  - `flushdb` to clean DB
