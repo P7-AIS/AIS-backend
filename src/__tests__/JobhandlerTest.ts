@@ -15,9 +15,7 @@ jest.mock('../implementations/PrismaDatabaseHandler', () => ({
 }))
 jest.mock('bullmq', () => ({
   Queue: jest.fn(() => jobQueueMock),
-}))
-jest.mock('bullmq', () => ({
-  queueEventsMock: jest.fn(() => queueEventsMock),
+  QueueEvents: jest.fn(() => queueEventsMock),
 }))
 jest.mock('../implementations/LogicHandler', () => ({
   LogicHandler: jest.fn(() => logicHandlerMock),
@@ -29,7 +27,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  jest.clearAllMocks()
+  jest.resetAllMocks()
 })
 
 describe('JobHandler - getMonitoredVessels', () => {
@@ -79,7 +77,7 @@ describe('JobHandler - getMonitoredVessels', () => {
   it('should return monitored vessels if getJobData and runJobs succeed', async () => {
     const proto = Object.getPrototypeOf(jobHandler)
     //mock private runJobs and getJobData method
-    const spy1 = jest.spyOn(proto, 'getJobData').mockImplementation(() => {
+    const spy1 = jest.spyOn(proto, 'getJobData').mockImplementationOnce(() => {
       return [
         {
           mmsi: 123,
@@ -113,3 +111,11 @@ describe('JobHandler - getMonitoredVessels', () => {
     expect(spy2).toHaveBeenCalledTimes(1)
   })
 })
+
+// describe('JobHandler - getJobData', () => {
+//   it('should return empty array if getVesselsInArea returns no ids', async () => {
+//     const points: Point[] = []
+//     const res = await (jobHandler as any).getJobData(points, new Date())
+//     expect(res).toEqual([])
+//   })
+// })
