@@ -204,7 +204,7 @@ describe('DatabaseHandler - getAllSimpleVessels', () => {
     expect(result).toEqual(expectedOutput)
   })
 
-  it('should return an empty array when the query returns no results', async () => {
+  it('should return an empty list when the query returns no results', async () => {
     const testDate = new Date('2024-01-01T12:00:00Z')
     prismaMock.$queryRaw.mockResolvedValue([])
     const result = await databaseHandler.getAllSimpleVessels(testDate)
@@ -242,7 +242,7 @@ describe('DatabaseHandler - getAllSimpleVessels', () => {
 })
 
 describe('DatabaseHandler - getVesselPath', () => {
-  it('should return vesselpath with locations array if a path is found by query', async () => {
+  it('should return vesselpath with locations list if a path is found by query', async () => {
     const start = new Date('123456789')
     const end = new Date('234567890')
     const mmsi = 12345
@@ -302,7 +302,7 @@ describe('DatabaseHandler - getVesselPath', () => {
     expect(result).toEqual(expectedOutput)
   })
 
-  it('should return vesselpath with empty locations array if no path found by query', async () => {
+  it('should return vesselpath with empty locations list if no path found by query', async () => {
     const start = new Date('123456789')
     const end = new Date('234567890')
     const mmsi = 12345
@@ -314,7 +314,7 @@ describe('DatabaseHandler - getVesselPath', () => {
 })
 
 describe('DatabaseHandler - getVesselsInArea', () => {
-  it('should return array of mmsis if return by query', async () => {
+  it('should return list of mmsis if mmsis are returned by query', async () => {
     const area: Point[] = [] //not used for anything
     const time = new Date()
 
@@ -325,7 +325,7 @@ describe('DatabaseHandler - getVesselsInArea', () => {
     expect(res).toEqual(expectedRes)
   })
 
-  it('should return empty array if no mmsis return by query', async () => {
+  it('should return empty list if no mmsis are returned by query', async () => {
     const area: Point[] = [] //not used for anything
     const time = new Date()
 
@@ -338,7 +338,7 @@ describe('DatabaseHandler - getVesselsInArea', () => {
 })
 
 describe('DatabaseHandler - getVesselTrajectories', () => {
-  it('should return trajectory array if trajectories are returned by query', async () => {
+  it('should return trajectory list if trajectories are returned by query', async () => {
     const mmsis = [123, 234, 345]
     const start = new Date()
     const end = new Date()
@@ -359,7 +359,7 @@ describe('DatabaseHandler - getVesselTrajectories', () => {
     expect(res).toEqual(expectedRes)
   })
 
-  it('should return empty trajectory array if no trajectories are returned by query', async () => {
+  it('should return empty trajectory list if no trajectories are returned by query', async () => {
     const mmsis: number[] = []
     const start = new Date()
     const end = new Date()
@@ -372,7 +372,7 @@ describe('DatabaseHandler - getVesselTrajectories', () => {
 })
 
 describe('DatabaseHandler - getVesselMessages', () => {
-  it('should return empty messages array if no messages returned by query', async () => {
+  it('should return empty messages list if no messages returned by query', async () => {
     const mmsis: number[] = []
     const start = new Date()
     const end = new Date()
@@ -383,7 +383,7 @@ describe('DatabaseHandler - getVesselMessages', () => {
     expect(res).toEqual([])
   })
 
-  it('should return array of ais messages when query returns results', async () => {
+  it('should return list of ais messages when query returns results', async () => {
     const mmsis: number[] = []
     const start = new Date()
     const end = new Date()
