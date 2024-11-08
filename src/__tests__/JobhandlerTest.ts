@@ -31,7 +31,7 @@ afterEach(() => {
 })
 
 describe('JobHandler - getMonitoredVessels', () => {
-  it('should return empty array if getJobData throws error', async () => {
+  it('should return empty list if getJobData throws error', async () => {
     const proto = Object.getPrototypeOf(jobHandler)
     //mock private getJobData method
     const spy = jest.spyOn(proto, 'getJobData').mockImplementation(() => {
@@ -45,7 +45,7 @@ describe('JobHandler - getMonitoredVessels', () => {
     expect(spy).toHaveBeenCalledTimes(1)
   })
 
-  it('should return empty array if runJobs throws error', async () => {
+  it('should return empty list if runJobs throws error', async () => {
     const proto = Object.getPrototypeOf(jobHandler)
     //mock private runJobs and getJobData method
     const spy1 = jest.spyOn(proto, 'getJobData').mockImplementation(() => {
@@ -113,7 +113,7 @@ describe('JobHandler - getMonitoredVessels', () => {
 })
 
 // describe('JobHandler - getJobData', () => {
-//   it('should return empty array if getVesselsInArea returns no ids', async () => {
+//   it('should return empty list if getVesselsInArea returns no ids', async () => {
 //     const points: Point[] = []
 //     const res = await (jobHandler as any).getJobData(points, new Date())
 //     expect(res).toEqual([])

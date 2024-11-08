@@ -129,7 +129,7 @@ describe('GRPCController - getSimpleVessels', () => {
     expect(callback).toHaveBeenCalledWith({ code: Status.NOT_FOUND }, null)
   })
 
-  it('should return array of simple vessels if returned by database', async () => {
+  it('should return list of simple vessels if returned by database', async () => {
     const call = mockDeep<grpc.ServerUnaryCall<SimpleVesselsRequest, SimpleVesselsResponse>>()
     const callback = jest.fn()
     call.request = { timestamp: 123 }
@@ -163,7 +163,7 @@ describe('GRPCController - getMonitoredVessels', () => {
     expect(callback).toHaveBeenCalledWith({ code: Status.INVALID_ARGUMENT }, null)
   })
 
-  it('should return empty array if jobhandler returns empty array', async () => {
+  it('should return empty list if jobhandler returns empty list', async () => {
     const call = mockDeep<grpc.ServerUnaryCall<MonitoredVesselsRequest, MonitoredVesselsResponse>>()
     const callback = jest.fn()
     call.request = {
@@ -180,7 +180,7 @@ describe('GRPCController - getMonitoredVessels', () => {
     expect(callback).toHaveBeenCalledWith(null, { vessels: [] })
   })
 
-  it('should return array of monitored vessels if returned from jobhandler', async () => {
+  it('should return list of monitored vessels if returned from jobhandler', async () => {
     const call = mockDeep<grpc.ServerUnaryCall<MonitoredVesselsRequest, MonitoredVesselsResponse>>()
     const callback = jest.fn()
     call.request = {
