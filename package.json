@@ -10,7 +10,8 @@
     "lint": "eslint",
     "build:protos:mac": "protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_opt=outputServices=grpc-js --ts_proto_out=./proto ./AIS-protobuf/ais.proto",
     "build:protos:win": "protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto.cmd --ts_proto_opt=outputServices=grpc-js --ts_proto_out=./proto ./AIS-protobuf/ais.proto",
-    "test": "jest"
+    "test": "jest",
+    "test:cov": "jest --coverage"
   },
   "keywords": [],
   "author": "",

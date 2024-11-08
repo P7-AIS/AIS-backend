@@ -28,3 +28,8 @@
 - `redis-cli` to connect to Redis instance
   - `shutdown` to stop instance
   - `flushdb` to clean DB
+
+### Test
+
+- `npm run test`
+- `npm run test:cov` to show
