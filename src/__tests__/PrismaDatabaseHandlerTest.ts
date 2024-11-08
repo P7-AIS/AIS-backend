@@ -242,7 +242,7 @@ describe('DatabaseHandler - getAllSimpleVessels', () => {
 })
 
 describe('DatabaseHandler - getVesselPath', () => {
-  it('should return SimpleVessel objects when data is returned from the query', async () => {
+  it('should return vesselpath with locations array if a path is found by query', async () => {
     const start = new Date('123456789')
     const end = new Date('234567890')
     const mmsi = 12345
