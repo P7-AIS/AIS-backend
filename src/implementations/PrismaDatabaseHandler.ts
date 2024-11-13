@@ -225,7 +225,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
   private convertToVesselType(ship_type: ship_type): ShipType {
     return {
       id: Number(ship_type.id),
-      name: ship_type.name ? ship_type.name : undefined,
+      name: ship_type.name,
     }
   }
 
