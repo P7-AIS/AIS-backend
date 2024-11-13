@@ -14,6 +14,7 @@
 - `npm run build:protos:(mac/win)` to generate TypeScript from .proto
 - `redis-server` in a new terminal (use WSL on Windows) to start Redis server
 - `npm run dev`
+- `docker compose up -d` to start prometheus server and grafana dashboard
 
 ## Prisma commands
 

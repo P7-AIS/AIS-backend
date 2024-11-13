@@ -14,12 +14,14 @@ export default class JobHandler implements IJobHandler, IMonitorable {
     private readonly queueEvents: QueueEvents
   ) {
     this.queueEvents.on('completed', async (event) => {
-      console.log(`Job ${event.jobId} completed successfully`)
+      // console.log(`Job ${event.jobId} completed successfully`)
     })
 
     this.queueEvents.on('failed', async (event) => {
       console.error(`Job ${event.jobId} failed:`, event.failedReason)
     })
+
+    jobQueue.setMaxListeners(Infinity)
   }
 
   public async getMonitoredVessels(selectionArea: Point[], time: Date): Promise<MonitoredVessel[]> {
@@ -57,7 +59,7 @@ export default class JobHandler implements IJobHandler, IMonitorable {
         mmsi,
         trajectory: trajectories.find((trajectory) => trajectory.mmsi === mmsi)!,
         aisMessages: groupedMessages[mmsi]!,
-        algorithm: AISWorkerAlgorithm.HASHED,
+        algorithm: AISWorkerAlgorithm.SIMPLE,
       })) || []
     )
   }

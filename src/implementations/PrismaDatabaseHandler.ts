@@ -2,10 +2,12 @@ import { PrismaClient, ship_type, vessel } from '@prisma/client'
 import IDatabaseHandler from '../interfaces/IDatabaseHandler'
 import IMonitorable from '../interfaces/IMonitorable'
 import { SimpleVessel, ShipType, Vessel, VesselPath, Point, Trajectory, AisMessage } from '../../AIS-models/models'
+import { dbQueryTimer, observeDBOperation } from './Prometheus'
 
 export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
   constructor(private readonly prisma: PrismaClient) {}
 
+  @observeDBOperation('getAllSimpleVessels')
   async getAllSimpleVessels(time: Date): Promise<SimpleVessel[] | null> {
     const newestLocs = await this.prisma.$queryRaw<
       { mmsi: bigint; lon: number; lat: number; timestamp: number; heading: number | null }[]
@@ -43,6 +45,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     return result
   }
 
+  @observeDBOperation('getVesselPath')
   async getVesselPath(mmsi: number, startime: Date, endtime: Date): Promise<VesselPath | null> {
     const results = await this.prisma.$queryRaw<
       { lon: number; lat: number; timestamp: number; heading: number | null }[]
@@ -78,6 +81,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     return result
   }
 
+  @observeDBOperation('getVesselsInArea')
   async getVesselsInArea(selectedArea: Point[], time: Date): Promise<number[] | null> {
     const pointsStr = selectedArea.map((point) => `ST_MakePoint(${point.lon}, ${point.lat})`).join(', ')
 
@@ -112,6 +116,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     return mmsis.map((mmsi) => Number(mmsi.mmsi))
   }
 
+  @observeDBOperation('getVesselTrajectories')
   async getVesselTrajectories(mmsis: number[], startime: Date, endtime: Date): Promise<Trajectory[] | null> {
     const mmsiStr = mmsis.join(', ')
 
@@ -129,8 +134,11 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     return trajectories
   }
 
+  @observeDBOperation('getVesselMessages')
   async getVesselMessages(mmsis: number[], startime: Date, endtime: Date): Promise<AisMessage[] | null> {
     const mmsiStr = mmsis.join(', ')
+    const startimeStr = new Date(startime.getTime() * 1000).toISOString().slice(0, 19).replace('T', ' ')
+    const endtimeStr = new Date(endtime.getTime() * 1000).toISOString().slice(0, 19).replace('T', ' ')
 
     const result = await this.prisma.$queryRawUnsafe<
       {
@@ -153,7 +161,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
       SELECT id, vessel_mmsi, destination, mobile_type_id, nav_status_id, data_source_type, timestamp, cog, rot, sog, heading, draught, cargo_type, eta
       FROM ais_message
       WHERE vessel_mmsi IN (${mmsiStr})
-      AND EXTRACT(EPOCH FROM timestamp) BETWEEN ${startime.getTime()} AND ${endtime.getTime()};
+      AND timestamp BETWEEN '${startimeStr}' AND '${endtimeStr}';
     `)
 
     const messages: AisMessage[] = result.map((msg) => ({
@@ -176,6 +184,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     return messages
   }
 
+  @observeDBOperation('getVessel')
   async getVessel(mmsi: number): Promise<Vessel | null> {
     const result = await this.prisma.vessel.findUnique({
       where: { mmsi: mmsi },
@@ -189,6 +198,7 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
     return this.convertToVessel(result)
   }
 
+  @observeDBOperation('getVesselType')
   async getVesselType(mmsi: number): Promise<ShipType | null> {
     const result = await this.prisma.ship_type.findUnique({
       where: { id: mmsi },
