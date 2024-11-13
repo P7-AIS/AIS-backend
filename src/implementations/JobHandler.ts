@@ -3,10 +3,9 @@ import { Point, MonitoredVessel, AISJobData, AISJobResult, AISWorkerAlgorithm } 
 import IDatabaseHandler from '../interfaces/IDatabaseHandler'
 import IJobHandler from '../interfaces/IJobHandler'
 import ILogicHandler from '../interfaces/ILogicHandler'
-import IMonitorable from '../interfaces/IMonitorable'
 import { Queue, QueueEvents } from 'bullmq'
 
-export default class JobHandler implements IJobHandler, IMonitorable {
+export default class JobHandler implements IJobHandler {
   constructor(
     private readonly logicHandler: ILogicHandler,
     private readonly databaseHandler: IDatabaseHandler,
@@ -82,9 +81,5 @@ export default class JobHandler implements IJobHandler, IMonitorable {
     const results: AISJobResult[] = await Promise.all(jobs.map((job) => job.waitUntilFinished(this.queueEvents)))
 
     return results
-  }
-
-  getAccumulatedLogs(): string[] {
-    throw new Error('Method not implemented.')
   }
 }

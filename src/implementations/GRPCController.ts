@@ -2,7 +2,6 @@ import * as grpc from '@grpc/grpc-js'
 import { Status } from '@grpc/grpc-js/build/src/constants'
 import IGRPCController from '../interfaces/IGRPCController'
 import IJobHandler from '../interfaces/IJobHandler'
-import IMonitorable from '../interfaces/IMonitorable'
 import ILogicHandler from '../interfaces/ILogicHandler'
 import IDatabaseHandler from '../interfaces/IDatabaseHandler'
 import {
@@ -21,7 +20,7 @@ import {
 } from '../../proto/AIS-protobuf/ais'
 import { MonitoredVessel } from '../../AIS-models/models'
 
-export default class GRPCController implements IGRPCController, IMonitorable {
+export default class GRPCController implements IGRPCController {
   [metod: string]: any
 
   constructor(
@@ -214,9 +213,5 @@ export default class GRPCController implements IGRPCController, IMonitorable {
       console.log('Stream ended.')
       endStream()
     })
-  }
-
-  getAccumulatedLogs(): string[] {
-    throw new Error('Method not implemented.')
   }
 }

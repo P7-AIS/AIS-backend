@@ -4,7 +4,6 @@ import LogicHandler from './implementations/LogicHandler'
 import JobHandler from './implementations/JobHandler'
 import GRPCController from './implementations/GRPCController'
 import GRPCServer from './implementations/GRPCServer'
-import Monitor from './implementations/Monitor'
 import dotenv from 'dotenv'
 import { Queue, QueueEvents } from 'bullmq'
 
@@ -24,7 +23,5 @@ const queueEvents = new QueueEvents(REDIS_QUEUE_NAME, { connection: { host: REDI
 const jobHandler = new JobHandler(logicHandler, databaseHandler, jobQueue, queueEvents)
 const controller = new GRPCController(jobHandler, logicHandler, databaseHandler)
 const service = new GRPCServer(controller, SERVER_PORT, SERVER_IP)
-const monitor = new Monitor([databaseHandler, logicHandler, jobHandler, controller])
 
-// monitor.start()
 service.start()

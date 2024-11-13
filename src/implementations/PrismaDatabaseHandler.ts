@@ -1,10 +1,9 @@
 import { PrismaClient, ship_type, vessel } from '@prisma/client'
 import IDatabaseHandler from '../interfaces/IDatabaseHandler'
-import IMonitorable from '../interfaces/IMonitorable'
 import { SimpleVessel, ShipType, Vessel, VesselPath, Point, Trajectory, AisMessage } from '../../AIS-models/models'
 import { dbQueryTimer, observeDBOperation } from './Prometheus'
 
-export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
+export default class DatabaseHandler implements IDatabaseHandler {
   constructor(private readonly prisma: PrismaClient) {}
 
   @observeDBOperation('getAllSimpleVessels')
@@ -237,9 +236,5 @@ export default class DatabaseHandler implements IDatabaseHandler, IMonitorable {
       id: Number(ship_type.id),
       name: ship_type.name ? ship_type.name : undefined,
     }
-  }
-
-  getAccumulatedLogs(): string[] {
-    throw new Error('Method not implemented.')
   }
 }
