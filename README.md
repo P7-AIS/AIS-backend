@@ -15,6 +15,9 @@
 - `redis-server` in a new terminal (use WSL on Windows) to start Redis server
 - `npm run dev`
 - `docker compose up -d` to start prometheus server and grafana dashboard
+- `npm run test` to run unit tests
+- `npm run test:scalability` to run scalability test and generate report in logs folder
+  - You need a proper cluster `config.yaml` file in `k8s` folder to run this test
 
 ## Prisma commands
 
