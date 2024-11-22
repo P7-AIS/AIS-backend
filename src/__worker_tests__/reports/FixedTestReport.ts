@@ -11,6 +11,8 @@ export interface FixedTestConfig {
   maxVessels: number
   vesselStep: number
   maxReplicas: number
+  mmsi: number
+  timestamp: number
 }
 
 export default class FixedTestReport {

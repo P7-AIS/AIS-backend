@@ -41,24 +41,11 @@ export default class JobHandler implements IJobHandler {
     const monitoredVesselIds = await this.databaseHandler.getVesselsInArea(selectionArea, time)
     if (!monitoredVesselIds) return []
 
-    const endtime = time
-    const starttime = new Date(endtime.getTime() - 60 * 60 * 1000)
-
-    const [trajectories, aisMessages] = await Promise.all([
-      this.databaseHandler.getVesselTrajectories(monitoredVesselIds, starttime, endtime),
-      this.databaseHandler.getVesselMessages(monitoredVesselIds, starttime, endtime),
-    ])
-
-    if (!trajectories || !aisMessages) return []
-
-    const groupedMessages = groupBy(aisMessages, 'mmsi')
-
     return (
       monitoredVesselIds.map((mmsi) => ({
         mmsi,
-        trajectory: trajectories.find((trajectory) => trajectory.mmsi === mmsi)!,
-        aisMessages: groupedMessages[mmsi]!,
-        algorithm: AISWorkerAlgorithm.HASHED,
+        timestamp: time.getTime(),
+        algorithm: AISWorkerAlgorithm.SIMPLE,
       })) || []
     )
   }

@@ -8,26 +8,31 @@ export default class DatabaseHandler implements IDatabaseHandler {
 
   @observeDBOperation('getAllSimpleVessels')
   async getAllSimpleVessels(time: Date): Promise<SimpleVessel[] | null> {
+    console.time('getAllSimpleVessels')
+
+    const startTime = time.getTime() - 3600
+    const endTime = time.getTime()
+
     const newestLocs = await this.prisma.$queryRaw<
       { mmsi: bigint; lon: number; lat: number; timestamp: number; heading: number | null }[]
     >`
       WITH 
       endpoints AS (
-        SELECT mmsi, ST_EndPoint(ST_FilterByM(trajectory, 1, ${time.getTime()}, true)) AS endpoint
+        SELECT mmsi, ST_EndPoint(ST_FilterByM(trajectory, ${startTime}, ${endTime}, true)) AS endpoint
         FROM vessel_trajectory
       ),
       newest_points AS (
         SELECT mmsi, endpoint, TO_TIMESTAMP(ST_M(endpoint)) AS time
         FROM endpoints
         WHERE endpoint IS NOT NULL
-        AND TO_TIMESTAMP(ST_M(endpoint))
-        BETWEEN TO_TIMESTAMP(${time.getTime()}) - interval '1 hour' AND TO_TIMESTAMP(${time.getTime()})
       )
       SELECT mmsi, ST_X(endpoint) AS lon, ST_Y(endpoint) AS lat, ST_M(endpoint) AS timestamp, heading
-      FROM ais_message am, newest_points np
-      WHERE am.vessel_mmsi = np.mmsi
+      FROM newest_points np
+      JOIN ais_message am
+      ON am.vessel_mmsi = np.mmsi
       AND am.timestamp = np.time;
     `
+    console.timeEnd('getAllSimpleVessels')
 
     const result: SimpleVessel[] = newestLocs.map((loc) => ({
       mmsi: Number(loc.mmsi),
@@ -84,22 +89,25 @@ export default class DatabaseHandler implements IDatabaseHandler {
   async getVesselsInArea(selectedArea: Point[], time: Date): Promise<number[] | null> {
     const pointsStr = selectedArea.map((point) => `ST_MakePoint(${point.lon}, ${point.lat})`).join(', ')
 
+    const startTime = time.getTime() - 3600
+    const endTime = time.getTime()
+
+    console.time('getVesselsInArea')
     const mmsis = await this.prisma.$queryRawUnsafe<{ mmsi: bigint }[]>(`
       WITH
       endpoints as (
-          SELECT mmsi, st_endpoint(st_filterbym(trajectory, 1, ${time.getTime()}, true)) as endpoint
+          SELECT mmsi, st_endpoint(st_filterbym(trajectory, ${startTime}, ${endTime}, true)) as endpoint
           FROM vessel_trajectory
       ),
       newest_points as (
           SELECT mmsi, endpoint, to_timestamp(st_m(endpoint)) as time
           FROM endpoints
           WHERE endpoint IS NOT NULL
-          AND to_timestamp(st_m(endpoint))
-          BETWEEN to_timestamp(${time.getTime()}) - interval '1 hour' AND to_timestamp(${time.getTime()})
       )
       SELECT mmsi
-      FROM ais_message am, newest_points np
-      WHERE am.vessel_mmsi = np.mmsi
+      FROM ais_message am
+      JOIN newest_points np
+      ON am.vessel_mmsi = np.mmsi
       AND am.timestamp = np.time
       AND st_contains(
           st_setsrid(
@@ -111,6 +119,7 @@ export default class DatabaseHandler implements IDatabaseHandler {
           np.endpoint
       );
     `)
+    console.timeEnd('getVesselsInArea')
 
     return mmsis.map((mmsi) => Number(mmsi.mmsi))
   }

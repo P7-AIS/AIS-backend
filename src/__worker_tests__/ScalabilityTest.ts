@@ -21,15 +21,19 @@ export default class ScalabilityTest {
   }
 
   async runTest(config: FixedTestConfig) {
-    const report = new FixedTestReport(config)
+    const { maxReplicas, vesselStep, minVessels, maxVessels, mmsi, timestamp } = config
 
-    const { maxReplicas, vesselStep, minVessels, maxVessels } = config
+    if (maxReplicas > 20) {
+      throw new Error('Too many replicas')
+    }
+
+    const report = new FixedTestReport(config)
 
     for (let replicas = maxReplicas; replicas > 0; replicas--) {
       await this.scaleDeploymentAndWait('ais', 'ais-worker', replicas)
       for (let vessels = maxVessels; vessels >= minVessels; vessels -= vesselStep) {
         await this.cleanUp()
-        const duration = await this.runFixedTest(replicas, vessels)
+        const duration = await this.runFixedTest(replicas, vessels, mmsi, timestamp)
         const entry: TestReportEntry = { replicas, vessels, duration }
         report.addEntry(entry)
         report.outputReport('logs')
@@ -60,8 +64,8 @@ export default class ScalabilityTest {
     console.log('Redis flushed')
   }
 
-  async runFixedTest(replicas: number, vessels: number) {
-    const generatedJobsData = JobGenerator.getRandomJobData(vessels, 3600, AISWorkerAlgorithm.SIMPLE)
+  async runFixedTest(replicas: number, vessels: number, mmsi: number, timestamp: number) {
+    const generatedJobsData = JobGenerator.getRandomJobData(vessels, AISWorkerAlgorithm.SIMPLE, mmsi, timestamp)
     console.log(`Generated ${vessels} jobs for ${replicas} replicas`)
     const startTime = performance.now()
     console.log('Running jobs...')
@@ -82,6 +86,10 @@ export default class ScalabilityTest {
       const batch = jobData.slice(i, i + batchSize)
       console.log(`Adding batch ${i / batchSize + 1} with ${batch.length} jobs.`)
 
+      const startTime = performance.now()
+      // console.log('Adding jobs start: ', performance.now())
+      console.time('Bulking time')
+
       const jobs = await this.jobQueue.addBulk(
         batch.map((job) => {
           const jobName = job.mmsi.toString()
@@ -97,6 +105,7 @@ export default class ScalabilityTest {
           }
         })
       )
+      console.timeEnd('Bulking time')
 
       console.log(`Batch ${i / batchSize + 1} added. Waiting for completion...`)
 
@@ -105,7 +114,7 @@ export default class ScalabilityTest {
           job
             .waitUntilFinished(this.queueEvents)
             .then((result) => {
-              console.log(`Job ${job.name} completed.`)
+              // console.log(`Job ${job.name} completed.`)
               return result
             })
             .catch((err) => {

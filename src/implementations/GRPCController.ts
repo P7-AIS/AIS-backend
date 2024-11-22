@@ -126,6 +126,8 @@ export default class GRPCController implements IGRPCController {
       return
     }
 
+    console.time('getMonitoredVessels')
+
     const monitoredVessels = await this.jobHandler.getMonitoredVessels(
       call.request.selectedArea,
       new Date(call.request.timestamp)
@@ -140,6 +142,8 @@ export default class GRPCController implements IGRPCController {
     const response: MonitoredVesselsResponse = {
       vessels: grpcMonitoredVessels,
     }
+
+    console.timeEnd('getMonitoredVessels')
 
     callback(null, response)
   }
