@@ -79,53 +79,40 @@ export default class ScalabilityTest {
   async runJobs(jobData: AISJobData[]) {
     console.log(`Received ${jobData.length} job(s) to process.`)
 
-    const batchSize = 1000 // Adjust batch size as needed
-    let results: AISJobResult[] = []
+    const startTime = performance.now()
+    console.time('Bulking time')
 
-    for (let i = 0; i < jobData.length; i += batchSize) {
-      const batch = jobData.slice(i, i + batchSize)
-      console.log(`Adding batch ${i / batchSize + 1} with ${batch.length} jobs.`)
-
-      const startTime = performance.now()
-      // console.log('Adding jobs start: ', performance.now())
-      console.time('Bulking time')
-
-      const jobs = await this.jobQueue.addBulk(
-        batch.map((job) => {
-          const jobName = job.mmsi.toString()
-          return {
-            name: jobName,
-            data: job,
-            opts: {
-              removeOnComplete: {
-                age: 100,
-              },
-              removeOnFail: true,
+    const jobs = await this.jobQueue.addBulk(
+      jobData.map((job) => {
+        const jobName = job.mmsi.toString()
+        return {
+          name: jobName,
+          data: job,
+          opts: {
+            removeOnComplete: {
+              age: 100,
             },
-          }
-        })
+            removeOnFail: true,
+          },
+        }
+      })
+    )
+    console.timeEnd('Bulking time')
+
+    const results = await Promise.all(
+      jobs.map((job) =>
+        job
+          .waitUntilFinished(this.queueEvents)
+          .then((result) => {
+            // console.log(`Job ${job.name} completed.`)
+            return result
+          })
+          .catch((err) => {
+            console.error(`Job ${job.name} failed:`, err)
+            throw err
+          })
       )
-      console.timeEnd('Bulking time')
-
-      console.log(`Batch ${i / batchSize + 1} added. Waiting for completion...`)
-
-      const batchResults = await Promise.all(
-        jobs.map((job) =>
-          job
-            .waitUntilFinished(this.queueEvents)
-            .then((result) => {
-              // console.log(`Job ${job.name} completed.`)
-              return result
-            })
-            .catch((err) => {
-              console.error(`Job ${job.name} failed:`, err)
-              throw err
-            })
-        )
-      )
-
-      results = results.concat(batchResults)
-    }
+    )
 
     console.log(`All batches processed. Total results: ${results.length}`)
   }
