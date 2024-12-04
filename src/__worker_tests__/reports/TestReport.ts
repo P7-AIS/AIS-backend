@@ -24,6 +24,7 @@ export interface FixedTestConfig extends TestConfig {
   maxReplicas: number
   mmsi: number
   timestamp: number
+  isFetch: number
 }
 
 interface TestConfig {

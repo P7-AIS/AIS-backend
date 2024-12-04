@@ -21,7 +21,7 @@ export default class ScalabilityTest {
   }
 
   async runTest(config: FixedTestConfig) {
-    const { minReplicas, maxReplicas, vesselStep, minVessels, maxVessels, mmsi, timestamp } = config
+    const { minReplicas, maxReplicas, vesselStep, minVessels, maxVessels, mmsi, timestamp, isFetch } = config
 
     if (maxReplicas > 20) {
       throw new Error('Too many replicas')
@@ -33,7 +33,7 @@ export default class ScalabilityTest {
       await this.scaleDeploymentAndWait('ais', 'ais-worker', replicas)
       for (let vessels = maxVessels; vessels >= minVessels; vessels -= vesselStep) {
         await this.cleanUp()
-        const duration = await this.runFixedTest(replicas, vessels, mmsi, timestamp)
+        const duration = await this.runFixedTest(replicas, vessels, mmsi, timestamp, isFetch === 1)
         const entry: TestReportEntry = { replicas, vessels, duration }
         report.addEntry(entry)
         report.outputReport('logs')
@@ -64,8 +64,9 @@ export default class ScalabilityTest {
     console.log('Redis flushed')
   }
 
-  private async runFixedTest(replicas: number, vessels: number, mmsi: number, timestamp: number) {
-    const generatedJobsData = JobGenerator.getIdenticalJobData(vessels, AISWorkerAlgorithm.TESTING, mmsi, timestamp)
+  private async runFixedTest(replicas: number, vessels: number, mmsi: number, timestamp: number, isFetch: boolean) {
+    const algo = isFetch ? AISWorkerAlgorithm.PROFILING_FETCH : AISWorkerAlgorithm.PROFILING_JSON
+    const generatedJobsData = JobGenerator.getIdenticalJobData(vessels, algo, mmsi, timestamp)
     console.log(`Generated ${vessels} jobs for ${replicas} replicas`)
     const startTime = performance.now()
     console.log('Running jobs...')

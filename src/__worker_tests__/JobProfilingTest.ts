@@ -40,7 +40,7 @@ export default class JobProfilingTest {
       const now = new Date().getTime()
       this.jobProfiles[event.jobId] = {
         ...this.jobProfiles[event.jobId],
-        endCreatingJobs: now,
+        // endCreatingJobs: now,
         startQueueTo: now,
       }
     })
@@ -59,7 +59,7 @@ export default class JobProfilingTest {
   }
 
   async runTest(config: FixedTestConfig) {
-    const { minReplicas, maxReplicas, vesselStep, minVessels, maxVessels, mmsi, timestamp } = config
+    const { minReplicas, maxReplicas, vesselStep, minVessels, maxVessels, mmsi, timestamp, isFetch } = config
 
     if (maxReplicas > 20) {
       throw new Error('Too many replicas')
@@ -71,7 +71,7 @@ export default class JobProfilingTest {
       await this.scaleDeploymentAndWait('ais', 'ais-worker', replicas)
       for (let vessels = maxVessels; vessels >= minVessels; vessels -= vesselStep) {
         await this.cleanUp()
-        await this.runFixedTest(replicas, vessels, mmsi, timestamp)
+        await this.runFixedTest(replicas, vessels, mmsi, timestamp, isFetch === 1)
 
         Object.values(this.jobProfiles).forEach((profile) =>
           report.addEntry(this.createJobEntry(profile, replicas, vessels))
@@ -104,8 +104,9 @@ export default class JobProfilingTest {
     console.log('Redis flushed')
   }
 
-  async runFixedTest(replicas: number, vessels: number, mmsi: number, timestamp: number) {
-    const generatedJobsData = JobGenerator.getIdenticalJobData(vessels, AISWorkerAlgorithm.PROFILING, mmsi, timestamp)
+  async runFixedTest(replicas: number, vessels: number, mmsi: number, timestamp: number, isFetch: boolean) {
+    const algo = isFetch ? AISWorkerAlgorithm.PROFILING_FETCH : AISWorkerAlgorithm.PROFILING_JSON
+    const generatedJobsData = JobGenerator.getIdenticalJobData(vessels, algo, mmsi, timestamp)
     console.log(`Generated ${vessels} jobs for ${replicas} replicas`)
     const startTime = new Date().getTime()
     console.log('Running jobs...')
@@ -139,10 +140,13 @@ export default class JobProfilingTest {
       })
     )
 
+    const endCreatingJobs = new Date().getTime()
+
     jobs.forEach((job) => {
       this.jobProfiles[job.id!] = {
         ...this.jobProfiles[job.id!],
         startCreatingJobs,
+        endCreatingJobs,
       }
     })
 

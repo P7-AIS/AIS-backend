@@ -219,6 +219,44 @@ export default class DatabaseHandler implements IDatabaseHandler {
 
   ///////////////////////////////////////////////////////////
 
+  async insertVessel(vessel: Vessel): Promise<void> {
+    await this.prisma.vessel.create({
+      data: {
+        mmsi: vessel.mmsi,
+      },
+    })
+  }
+
+  async insertMessages(messages: AisMessage[]): Promise<void> {
+    await this.prisma.ais_message.createMany({
+      data: messages.map((msg) => ({
+        vessel_mmsi: msg.mmsi,
+        timestamp: msg.timestamp,
+        destination: msg.destination,
+        mobile_type_id: msg.mobileTypeId,
+        nav_status_id: msg.navigationalStatusId,
+        data_source_type: msg.dataSourceType,
+        cog: msg.cog,
+        rot: msg.rot,
+        sog: msg.sog,
+        heading: msg.heading,
+        draught: msg.draught,
+        cargo_type: msg.cargoType,
+        eta: msg.eta,
+      })),
+    })
+  }
+
+  async insertTrajectory(trajectory: Trajectory): Promise<void> {
+    const hexBinPath = trajectory.binPath.toString('hex') // Convert Buffer to hex string
+    await this.prisma.$executeRawUnsafe(`
+      INSERT INTO vessel_trajectory (mmsi, trajectory)
+      VALUES (${trajectory.mmsi}, ST_GeomFromWKB('\\x${hexBinPath}'))
+    `)
+  }
+
+  ///////////////////////////////////////////////////////////
+
   private convertToVessel(
     vessel: vessel & {
       ship_type: ship_type | null
